@@ -1,8 +1,9 @@
-require 'test/unit'
+require 'minitest/autorun'
+
 $:.push(File.expand_path("../../lib", __FILE__))
 require 'simplex'
 
-class SimplexTest < Test::Unit::TestCase
+class SimplexTest < Minitest::Test
   def test_2x2
     result = Simplex.new(
       [1, 1],
@@ -180,13 +181,13 @@ class SimplexTest < Test::Unit::TestCase
       ],
       [0, 0]
     )
-    assert_raise Simplex::UnboundedProblem do
+    assert_raises Simplex::UnboundedProblem do
       simplex.solution
     end
   end
 
   def test_error_mismatched_dimensions
-    assert_raise ArgumentError do
+    assert_raises ArgumentError do
       result = Simplex.new(
         [10, -57, -9],
         [
@@ -198,7 +199,7 @@ class SimplexTest < Test::Unit::TestCase
       )
     end
 
-    assert_raise ArgumentError do
+    assert_raises ArgumentError do
       result = Simplex.new(
         [10, -57, -9, 2],
         [
@@ -210,7 +211,7 @@ class SimplexTest < Test::Unit::TestCase
       )
     end
 
-    assert_raise ArgumentError do
+    assert_raises ArgumentError do
       result = Simplex.new(
         [10, -57, -9, 2],
         [
@@ -282,7 +283,7 @@ class SimplexTest < Test::Unit::TestCase
       ],
       [5, 7]
     )
-    assert_raise Simplex::UnboundedProblem do
+    assert_raises Simplex::UnboundedProblem do
       simplex.solution
     end
   end
