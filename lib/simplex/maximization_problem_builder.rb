@@ -1,7 +1,8 @@
-require 'delegate'
-
 module Simplex
-  class MaximizationProblem < SimpleDelegator
+  class MaximizationProblemBuilder
+    attr_reader :objective_coefficients_vector, :constraints_matrix,
+      :rhs_values_vector
+
     def initialize(
       objective_coefficients: objective_coefficients,
       constraints: constraints,
@@ -15,29 +16,32 @@ module Simplex
         raise ArgumentError, "Input arrays have mismatched dimensions"
       end
 
-      @num_constraints = rhs_values.length
-      @num_non_slack_vars = constraints.first.length
-
       @objective_coefficients_vector = build_objective_coefficients_vector
       @constraints_matrix = build_constraints_matrix
       @rhs_values_vector = build_rhs_values_vector
+    end
 
-      problem = Simplex::Problem.new(
+    def build
+      Simplex::Problem.new(
         objective_coefficients_vector: objective_coefficients_vector,
         constraints_matrix: constraints_matrix,
         rhs_values_vector: rhs_values_vector,
         num_constraints: num_constraints,
         num_non_slack_vars: num_non_slack_vars
       )
-
-      super(problem)
     end
 
     private
 
-    attr_reader :objective_coefficients, :constraints, :rhs_values,
-      :objective_coefficients_vector, :constraints_matrix, :rhs_values_vector,
-      :num_constraints, :num_non_slack_vars, :simplex
+    attr_reader :objective_coefficients, :constraints, :rhs_values
+
+    def num_constraints
+      rhs_values.length
+    end
+
+    def num_non_slack_vars
+      constraints.first.length
+    end
 
     def build_objective_coefficients_vector
       Vector[*(

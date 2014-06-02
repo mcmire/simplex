@@ -1,6 +1,6 @@
 require 'simplex/vector_extensions'
 require 'simplex/problem'
-require 'simplex/maximization_problem'
+require 'simplex/maximization_problem_builder'
 require 'simplex/unbounded_problem'
 
 module Simplex
@@ -9,10 +9,12 @@ module Simplex
     constraints: constraints,
     rhs_values: rhs_values
   )
-    Simplex::MaximizationProblem.new(
+    builder = Simplex::MaximizationProblemBuilder.new(
       objective_coefficients: objective_coefficients,
       constraints: constraints,
       rhs_values: rhs_values
     )
+
+    builder.build
   end
 end
