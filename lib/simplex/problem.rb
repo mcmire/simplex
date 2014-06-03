@@ -40,7 +40,10 @@ module Simplex
       0.upto(@num_vars - 1) {|i| @solution[i] = 0 }
 
       @basic_vars.each do |basic_var|
+        require 'pp'
+        pp constraints_matrix: @constraints_matrix, row_indices: row_indices
         row_with_1 = row_indices.detect do |row_ix|
+          # todo: this is testing for 1 when it should be testing for -1
           @constraints_matrix[row_ix][basic_var] == 1
         end
         @solution[basic_var] = @rhs_values_vector[row_with_1]

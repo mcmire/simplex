@@ -288,4 +288,37 @@ class SimplexTest < Minitest::Test
     end
   end
 
+  def test_minimization_problem
+    puts 'minimizing'
+    simplex = Simplex.minimization_problem(
+      objective_coefficients: [0.12, 0.15],
+      constraints: [
+        [60, 60],
+        [12, 6],
+        [10, 30]
+      ],
+      rhs_values: [300, 36, 90]
+    )
+    result = simplex.solution
+    require 'pp'
+    pp result: result
+    puts simplex.formatted_tableau
+    #assert_equal [3, 2], result
+
+    puts 'maximizing'
+    simplex = Simplex.maximization_problem(
+      objective_coefficients: [0.12, 0.15],
+      constraints: [
+        [60, 60],
+        [12, 6],
+        [10, 30]
+      ],
+      rhs_values: [300, 36, 90]
+    )
+    result = simplex.solution
+    require 'pp'
+    pp result: result
+    puts simplex.formatted_tableau
+    #assert_equal [3, 2], result
+  end
 end
