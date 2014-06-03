@@ -25,15 +25,9 @@ module Simplex
       Simplex::Problem.new(
         objective_coefficients_vector: objective_coefficients_vector,
         constraints_matrix: constraints_matrix,
-        rhs_values_vector: rhs_values_vector,
-        num_constraints: num_constraints,
-        num_non_slack_vars: num_non_slack_vars
+        rhs_values_vector: rhs_values_vector
       )
     end
-
-    private
-
-    attr_reader :objective_coefficients, :constraints, :rhs_values
 
     def num_constraints
       rhs_values.length
@@ -42,6 +36,10 @@ module Simplex
     def num_non_slack_vars
       constraints.first.length
     end
+
+    private
+
+    attr_reader :objective_coefficients, :constraints, :rhs_values
 
     def build_objective_coefficients_vector
       Vector[*(

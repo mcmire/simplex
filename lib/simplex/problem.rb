@@ -9,15 +9,13 @@ module Simplex
     def initialize(
       objective_coefficients_vector: objective_coefficients_vector,
       constraints_matrix: constraints_matrix,
-      rhs_values_vector: rhs_values_vector,
-      num_constraints: num_constraints,
-      num_non_slack_vars: num_non_slack_vars
+      rhs_values_vector: rhs_values_vector
     )
       @objective_coefficients_vector = objective_coefficients_vector
       @constraints_matrix = constraints_matrix
       @rhs_values_vector = rhs_values_vector
-      @num_non_slack_vars = num_non_slack_vars
-      @num_constraints    = num_constraints
+      @num_non_slack_vars = @constraints_matrix.first.to_a.length
+      @num_constraints    = @rhs_values_vector.to_a.length
 
       @num_vars = @num_non_slack_vars + @num_constraints
       @basic_vars = (@num_non_slack_vars...@num_vars).to_a
