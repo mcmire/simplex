@@ -9,20 +9,20 @@ module Simplex
       constraints_matrix: constraints_matrix,
       rhs_values_vector: rhs_values_vector,
       number_of_constraints: number_of_constraints,
-      number_of_non_slack_variables: number_of_non_slack_variables
+      number_of_decision_variables: number_of_decision_variables
     )
       @objective_vector = objective_vector
       @constraints_matrix = constraints_matrix
       @rhs_values_vector = rhs_values_vector
       @number_of_constraints = number_of_constraints
-      @number_of_non_slack_variables = number_of_non_slack_variables
+      @number_of_decision_variables = number_of_decision_variables
 
-      @num_vars = @number_of_non_slack_variables + @number_of_constraints
-      @basic_variable_indices = (@number_of_non_slack_variables...@num_vars).to_a
+      @number_of_variables = @number_of_decision_variables + @number_of_constraints
+      @basic_variable_indices = (@number_of_decision_variables...@number_of_variables).to_a
 
       @pivot_count = 0
       @max_pivots = DEFAULT_MAX_PIVOTS
-      @solution = Array.new(@num_vars, 0)
+      @solution = Array.new(@number_of_variables, 0)
 
       update_solution
     end
@@ -33,12 +33,14 @@ module Simplex
     end
 
     def current_solution
-      @solution[0...@number_of_non_slack_variables]
+      @solution[0...@number_of_decision_variables]
     end
 
     def update_solution
-      0.upto(@num_vars - 1) {|i| @solution[i] = 0 }
+      @solution = Array.new(@number_of_variables, 0)
 
+      # TODO: A better way to do this is to keep track of what the original
+      # basic variables were and then select the proper rows from rhs_values
       @basic_variable_indices.each do |basic_variable_index|
         require 'pp'
         pp basic_variable_index: basic_variable_index,
@@ -119,28 +121,33 @@ module Simplex
     def replace_basic_variable(from, to)
       @basic_variable_indices.delete(from)
       @basic_variable_indices << to
+      # TODO: why is it necessary to sort them?
       @basic_variable_indices.sort!
     end
 
     def pivot_row_index(column_index)
-      row_index_a_and_b = row_indices.map { |row_index|
+      eligible_values = row_indices.map { |row_index|
+        constraint_value = @constraints_matrix[row_index][column_index]
+        rhs_value = @rhs_values_vector[row_index]
         [
           row_index,
-          @constraints_matrix[row_index][column_index],
-          @rhs_values_vector[row_index]
+          constraint_value,
+          rhs_value,
+          Rational(rhs_value, constraint_value)
         ]
-      }.reject { |_, constraints_matrix, rhs_values_vector|
-        constraints_matrix == 0
-      }.reject { |_, constraints_matrix, rhs_values_vector|
-        (rhs_values_vector < 0) ^ (constraints_matrix < 0) # negative sign check
+      }.reject { |_, constraint_value, _, _|
+        constraint_value == 0
+      }.reject { |_, constraint_value, rhs_value, _|
+        (rhs_value < 0) ^ (constraint_value < 0) # negative sign check
       }
-      row_index, _, _ =
-        *last_min_by(row_index_a_and_b) { |_, constraints_matrix, rhs_values_vector|
-          Rational(rhs_values_vector, constraints_matrix)
-        }
+
+      row_index, _, _, _ =
+        last_min_by(eligible_values) { |_, _, _, pivot_ratio| pivot_ratio }
+
       row_index
     end
 
+    # TODO: Keep better track of this
     def basic_variable_index_in_row(pivot_row_index)
       column_indices.detect do |column_index|
         @constraints_matrix[pivot_row_index][column_index] == 1 &&

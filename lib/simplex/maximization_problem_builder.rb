@@ -31,7 +31,7 @@ module Simplex
       end
 
       @number_of_constraints = calculate_number_of_constraints
-      @number_of_non_slack_variables = calculate_number_of_non_slack_variables
+      @number_of_decision_variables = calculate_number_of_decision_variables
 
       objective_vector = build_objective_vector
       constraints_matrix = build_constraints_matrix
@@ -41,14 +41,14 @@ module Simplex
         constraints_matrix: constraints_matrix,
         rhs_values_vector: rhs_values,
         number_of_constraints: number_of_constraints,
-        number_of_non_slack_variables: number_of_non_slack_variables
+        number_of_decision_variables: number_of_decision_variables
       )
     end
 
     private
 
     attr_reader :objective_coefficients, :constraints, :number_of_constraints,
-      :number_of_non_slack_variables
+      :number_of_decision_variables
 
     def rhs_values
       constraints.map { |constraint| constraint[:rhs_value] }
@@ -58,7 +58,7 @@ module Simplex
       rhs_values.size
     end
 
-    def calculate_number_of_non_slack_variables
+    def calculate_number_of_decision_variables
       constraints.first[:coefficients].size
     end
 
@@ -77,7 +77,7 @@ module Simplex
         slack_variable_placeholders = Array.new(number_of_constraints, 0)
         values = constraint_coefficients + slack_variable_placeholders
 
-        values[number_of_non_slack_variables + i] =
+        values[number_of_decision_variables + i] =
           determine_slack_value(constraint[:operator])
 
         values
