@@ -30,8 +30,8 @@ module Simplex
         raise ArgumentError, 'Number of values per constraint should be the same as the number of objective coefficients'
       end
 
-      @num_constraints = calculate_num_constraints
-      @num_non_slack_vars = calculate_num_non_slack_vars
+      @number_of_constraints = calculate_number_of_constraints
+      @number_of_non_slack_variables = calculate_number_of_non_slack_variables
 
       objective_vector = build_objective_vector
       constraints_matrix = build_constraints_matrix
@@ -40,25 +40,25 @@ module Simplex
         objective_vector: objective_vector,
         constraints_matrix: constraints_matrix,
         rhs_values_vector: rhs_values,
-        num_constraints: num_constraints,
-        num_non_slack_vars: num_non_slack_vars
+        number_of_constraints: number_of_constraints,
+        number_of_non_slack_variables: number_of_non_slack_variables
       )
     end
 
     private
 
-    attr_reader :objective_coefficients, :constraints, :num_constraints,
-      :num_non_slack_vars
+    attr_reader :objective_coefficients, :constraints, :number_of_constraints,
+      :number_of_non_slack_variables
 
     def rhs_values
       constraints.map { |constraint| constraint[:rhs_value] }
     end
 
-    def calculate_num_constraints
+    def calculate_number_of_constraints
       rhs_values.size
     end
 
-    def calculate_num_non_slack_vars
+    def calculate_number_of_non_slack_variables
       constraints.first[:coefficients].size
     end
 
@@ -66,18 +66,18 @@ module Simplex
       coefficients_on_opposite_side_of_equation =
         objective_coefficients.map { |coefficient| -1 * coefficient }
 
-      slack_var_placeholders = Array.new(num_constraints, 0)
+      slack_variable_placeholders = Array.new(number_of_constraints, 0)
 
-      coefficients_on_opposite_side_of_equation + slack_var_placeholders
+      coefficients_on_opposite_side_of_equation + slack_variable_placeholders
     end
 
     def build_constraints_matrix
       constraints.map.with_index do |constraint, i|
         constraint_coefficients = constraint[:coefficients].clone
-        slack_var_placeholders = Array.new(num_constraints, 0)
-        values = constraint_coefficients + slack_var_placeholders
+        slack_variable_placeholders = Array.new(number_of_constraints, 0)
+        values = constraint_coefficients + slack_variable_placeholders
 
-        values[num_non_slack_vars + i] =
+        values[number_of_non_slack_variables + i] =
           determine_slack_value(constraint[:operator])
 
         values

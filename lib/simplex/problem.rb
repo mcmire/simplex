@@ -8,17 +8,17 @@ module Simplex
       objective_vector: objective_vector,
       constraints_matrix: constraints_matrix,
       rhs_values_vector: rhs_values_vector,
-      num_constraints: num_constraints,
-      num_non_slack_vars: num_non_slack_vars
+      number_of_constraints: number_of_constraints,
+      number_of_non_slack_variables: number_of_non_slack_variables
     )
       @objective_vector = objective_vector
       @constraints_matrix = constraints_matrix
       @rhs_values_vector = rhs_values_vector
-      @num_constraints    = num_constraints
-      @num_non_slack_vars = num_non_slack_vars
+      @number_of_constraints = number_of_constraints
+      @number_of_non_slack_variables = number_of_non_slack_variables
 
-      @num_vars = @num_non_slack_vars + @num_constraints
-      @basic_variable_indices = (@num_non_slack_vars...@num_vars).to_a
+      @num_vars = @number_of_non_slack_variables + @number_of_constraints
+      @basic_variable_indices = (@number_of_non_slack_variables...@num_vars).to_a
 
       @pivot_count = 0
       @max_pivots = DEFAULT_MAX_PIVOTS
@@ -33,7 +33,7 @@ module Simplex
     end
 
     def current_solution
-      @solution[0...@num_non_slack_vars]
+      @solution[0...@number_of_non_slack_variables]
     end
 
     def update_solution
