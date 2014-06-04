@@ -70,8 +70,9 @@ module Simplex
     end
 
     def entering_variable_index
-      variable_indices.select { |var| @objective_vector[var] < 0 }.
-                min_by { |var| @objective_vector[var] }
+      variable_indices.
+        select { |index| @objective_vector[index] < 0 }.
+        min_by { |index| @objective_vector[index] }
     end
 
     def pivot
