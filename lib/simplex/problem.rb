@@ -79,7 +79,7 @@ module Simplex
       pivot_row_index  pivot_row_index(pivot_column_index)
       raise UnboundedProblem unless pivot_row_index
       leaving_variable_index = basic_variable_index_in_row(pivot_row_index)
-      replace_basic_variable(leaving_variable_index => pivot_column_index)
+      replace_basic_variable(leaving_variable_index, pivot_column_index)
 
       pivot_ratio =
         Rational(1, @constraints_matrix[pivot_row_index][pivot_column_index])
@@ -115,8 +115,7 @@ module Simplex
       update_solution
     end
 
-    def replace_basic_variable(hash)
-      from, to = hash.keys.first, hash.values.first
+    def replace_basic_variable(from, to)
       @basic_variable_indices.delete(from)
       @basic_variable_indices << to
       @basic_variable_indices.sort!
