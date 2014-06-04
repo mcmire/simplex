@@ -2,8 +2,6 @@ module Simplex
   DEFAULT_MAX_PIVOTS = 10_000
 
   class Problem
-    attr_accessor :max_pivots
-
     def initialize(
       objective_vector: objective_vector,
       constraints_matrix: constraints_matrix,
@@ -17,11 +15,18 @@ module Simplex
       @number_of_constraints = number_of_constraints
       @number_of_decision_variables = number_of_decision_variables
 
+      # .- decision -. slack   rhs
+      # +---+---+----+---+---++----+
+      # | 3 | 5 | -1 | 0 | 0 || 30 |
+      # | 1 | 4 |  0 | 1 | 0 || 10 |
+      # | 7 | 2 |  0 | 0 | 1 || 50 |
+      # +---+---+----+---+---++----+
+      #  '--- constraints ---'
+
       @number_of_variables = @number_of_decision_variables + @number_of_constraints
       @basic_variable_indices = (@number_of_decision_variables...@number_of_variables).to_a
 
       @pivot_count = 0
-      @max_pivots = DEFAULT_MAX_PIVOTS
       @solution = Array.new(@number_of_variables, 0)
 
       update_solution
@@ -58,7 +63,7 @@ module Simplex
     def solve
       while can_improve?
         @pivot_count += 1
-        raise "Too many pivots" if @pivot_count > max_pivots 
+        raise "Too many pivots" if @pivot_count > DEFAULT_MAX_PIVOTS
         pivot
       end
     end
