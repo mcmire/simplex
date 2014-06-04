@@ -6,17 +6,8 @@ require 'simplex/unbounded_problem'
 
 module Simplex
   class << self
-    def maximization_problem(
-      objective_coefficients: objective_coefficients,
-      constraints: constraints,
-      rhs_values: rhs_values
-    )
-      builder = Simplex::MaximizationProblemBuilder.new(
-        objective_coefficients: objective_coefficients,
-        constraints: constraints,
-        rhs_values: rhs_values
-      )
-
+    def maximization_problem(&block)
+      builder = Simplex::MaximizationProblemBuilder.new(&block)
       builder.build
     end
 
