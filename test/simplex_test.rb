@@ -359,22 +359,6 @@ class SimplexTest < Minitest::Test
         )
       end
     end
-
-    assert_raises ArgumentError do
-      Simplex.maximization_problem do |p|
-        p.objective_coefficients = [10, -57, -9, 2]
-        p.add_constraint(
-          coefficients: [0.5, -5.5, 9, 4],
-          operator: :>=,
-          rhs_value: 0
-        )
-        p.add_constraint(
-          coefficients: [1, 0, 0, 5],
-          operator: :>=,
-          rhs_value: 1
-        )
-      end
-    end
   end
 
   def test_manual_iteration
@@ -444,36 +428,32 @@ class SimplexTest < Minitest::Test
   end
 
   def test_minimization_problem
-    puts 'minimizing'
-    simplex = Simplex.minimization_problem(
-      objective_coefficients: [0.12, 0.15],
-      constraints: [
-        [60, 60],
-        [12, 6],
-        [10, 30]
-      ],
-      rhs_values: [300, 36, 90]
-    )
-    result = simplex.solution
-    require 'pp'
-    pp result: result
-    puts simplex.formatted_tableau
-    #assert_equal [3, 2], result
+    problem = Simplex.minimization_problem do |p|
+      p.objective_coefficients = [2, 1, 2]
+      p.add_constraint(
+        coefficients: [1, 5, 1],
+        operator: :<=,
+        rhs_value: 300
+      )
+      p.add_constraint(
+        coefficients: [1, 2, 1],
+        operator: :>=,
+        rhs_value: 50
+      )
+      p.add_constraint(
+        coefficients: [2, 4, 1],
+        operator: :>=,
+        rhs_value: 80
+      )
+    end
 
-    puts 'maximizing'
-    simplex = Simplex.maximization_problem(
-      objective_coefficients: [0.12, 0.15],
-      constraints: [
-        [60, 60],
-        [12, 6],
-        [10, 30]
-      ],
-      rhs_values: [300, 36, 90]
-    )
-    result = simplex.solution
+    while problem.can_improve?
+      puts problem.formatted_tableau
+      problem.pivot
+    end
+
+    solution = problem.solution
     require 'pp'
-    pp result: result
-    puts simplex.formatted_tableau
-    #assert_equal [3, 2], result
+    pp solution: solution
   end
 end
