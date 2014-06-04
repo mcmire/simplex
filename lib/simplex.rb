@@ -11,17 +11,8 @@ module Simplex
       builder.build
     end
 
-    def minimization_problem(
-      objective_coefficients: objective_coefficients,
-      constraints: constraints,
-      rhs_values: rhs_values
-    )
-      builder = Simplex::MinimizationProblemBuilder.new(
-        objective_coefficients: objective_coefficients,
-        constraints: constraints,
-        rhs_values: rhs_values
-      )
-
+    def minimization_problem(&block)
+      builder = Simplex::MinimizationProblemBuilder.new(&block)
       builder.build
     end
   end
