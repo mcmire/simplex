@@ -18,7 +18,7 @@ module Simplex
       @num_non_slack_vars = num_non_slack_vars
 
       @num_vars = @num_non_slack_vars + @num_constraints
-      @basic_vars = (@num_non_slack_vars...@num_vars).to_a
+      @basic_variable_indices = (@num_non_slack_vars...@num_vars).to_a
 
       @pivot_count = 0
       @max_pivots = DEFAULT_MAX_PIVOTS
@@ -39,17 +39,17 @@ module Simplex
     def update_solution
       0.upto(@num_vars - 1) {|i| @solution[i] = 0 }
 
-      @basic_vars.each do |basic_var|
+      @basic_variable_indices.each do |basic_variable_index|
         require 'pp'
-        pp basic_var: basic_var,
+        pp basic_variable_index: basic_variable_index,
            constraints_matrix: @constraints_matrix,
            row_indices: row_indices,
            rhs_values_vector: @rhs_values_vector
-        row_with_1 = row_indices.detect do |row_ix|
+        row_with_1 = row_indices.detect do |row_index|
           # todo: this is testing for 1 when it should be testing for -1
-          @constraints_matrix[row_ix][basic_var] == 1
+          @constraints_matrix[row_index][basic_variable_index] == 1
         end
-        @solution[basic_var] = @rhs_values_vector[row_with_1]
+        @solution[basic_variable_index] = @rhs_values_vector[row_with_1]
       end
     end
 
@@ -62,53 +62,54 @@ module Simplex
     end
 
     def can_improve?
-      !!entering_variable
+      !!entering_variable_index
     end
 
-    def variables
+    def variable_indices
       (0...@objective_vector.size).to_a
     end
 
-    def entering_variable
-      variables.select { |var| @objective_vector[var] < 0 }.
+    def entering_variable_index
+      variable_indices.select { |var| @objective_vector[var] < 0 }.
                 min_by { |var| @objective_vector[var] }
     end
 
     def pivot
-      pivot_column = entering_variable
-      pivot_row    = pivot_row(pivot_column)
-      raise UnboundedProblem unless pivot_row
-      leaving_var  = basic_variable_in_row(pivot_row)
-      replace_basic_variable(leaving_var => pivot_column)
+      pivot_column_index = entering_variable_index
+      pivot_row_index    = pivot_row_index(pivot_column_index)
+      raise UnboundedProblem unless pivot_row_index
+      leaving_var  = basic_variable_in_row(pivot_row_index)
+      replace_basic_variable(leaving_var => pivot_column_index)
 
-      pivot_ratio = Rational(1, @constraints_matrix[pivot_row][pivot_column])
+      pivot_ratio =
+        Rational(1, @constraints_matrix[pivot_row_index][pivot_column_index])
 
       # update pivot row
-      @constraints_matrix[pivot_row] = vector_multiply(
-        @constraints_matrix[pivot_row],
+      @constraints_matrix[pivot_row_index] = vector_multiply(
+        @constraints_matrix[pivot_row_index],
         pivot_ratio
       )
-      @rhs_values_vector[pivot_row] =
+      @rhs_values_vector[pivot_row_index] =
         pivot_ratio *
-        @rhs_values_vector[pivot_row]
+        @rhs_values_vector[pivot_row_index]
 
       # update objective
       @objective_vector = vector_subtract(
         @objective_vector,
         vector_multiply(
-          @constraints_matrix[pivot_row],
-          @objective_vector[pivot_column]
+          @constraints_matrix[pivot_row_index],
+          @objective_vector[pivot_column_index]
         )
       )
 
       # update A and B
-      (row_indices - [pivot_row]).each do |row_ix|
-        r = @constraints_matrix[row_ix][pivot_column]
-        @constraints_matrix[row_ix] = vector_subtract(
-          @constraints_matrix[row_ix],
-          vector_multiply(@constraints_matrix[pivot_row], r)
+      (row_indices - [pivot_row_index]).each do |row_index|
+        r = @constraints_matrix[row_index][pivot_column_index]
+        @constraints_matrix[row_index] = vector_subtract(
+          @constraints_matrix[row_index],
+          vector_multiply(@constraints_matrix[pivot_row_index], r)
         )
-        @rhs_values_vector[row_ix] -= @rhs_values_vector[pivot_row] * r
+        @rhs_values_vector[row_index] -= @rhs_values_vector[pivot_row_index] * r
       end
 
       update_solution
@@ -116,28 +117,34 @@ module Simplex
 
     def replace_basic_variable(hash)
       from, to = hash.keys.first, hash.values.first
-      @basic_vars.delete(from)
-      @basic_vars << to
-      @basic_vars.sort!
+      @basic_variable_indices.delete(from)
+      @basic_variable_indices << to
+      @basic_variable_indices.sort!
     end
 
-    def pivot_row(column_ix)
-      row_ix_a_and_b = row_indices.map { |row_ix|
-        [row_ix, @constraints_matrix[row_ix][column_ix], @rhs_values_vector[row_ix]]
+    def pivot_row_index(column_index)
+      row_index_a_and_b = row_indices.map { |row_index|
+        [
+          row_index,
+          @constraints_matrix[row_index][column_index],
+          @rhs_values_vector[row_index]
+        ]
       }.reject { |_, constraints_matrix, rhs_values_vector|
         constraints_matrix == 0
       }.reject { |_, constraints_matrix, rhs_values_vector|
         (rhs_values_vector < 0) ^ (constraints_matrix < 0) # negative sign check
       }
-      row_ix, _, _ = *last_min_by(row_ix_a_and_b) { |_, constraints_matrix, rhs_values_vector|
-        Rational(rhs_values_vector, constraints_matrix)
-      }
-      row_ix
+      row_index, _, _ =
+        *last_min_by(row_index_a_and_b) { |_, constraints_matrix, rhs_values_vector|
+          Rational(rhs_values_vector, constraints_matrix)
+        }
+      row_index
     end
 
-    def basic_variable_in_row(pivot_row)
-      column_indices.detect do |column_ix|
-        @constraints_matrix[pivot_row][column_ix] == 1 and @basic_vars.include?(column_ix)
+    def basic_variable_in_row(pivot_row_index)
+      column_indices.detect do |column_index|
+        @constraints_matrix[pivot_row_index][column_index] == 1 &&
+          @basic_variable_indices.include?(column_index)
       end
     end
 
@@ -151,23 +158,30 @@ module Simplex
 
     def formatted_tableau
       if can_improve?
-        pivot_column = entering_variable
-        pivot_row    = pivot_row(pivot_column)
+        pivot_column_index = entering_variable_index
+        pivot_row_index    = pivot_row_index(pivot_column_index)
       else
-        pivot_row = nil
+        pivot_row_index = nil
       end
       num_cols = @objective_vector.size + 1
       objective_vector = formatted_values(@objective_vector)
       rhs_values_vector = formatted_values(@rhs_values_vector)
-      constraints_matrix = @constraints_matrix.map {|values| formatted_values(values) }
-      if pivot_row
-        constraints_matrix[pivot_row][pivot_column] = "*" + constraints_matrix[pivot_row][pivot_column]
+      constraints_matrix = @constraints_matrix.map do |values|
+        formatted_values(values)
       end
-      max = (objective_vector + rhs_values_vector + constraints_matrix + ["1234567"]).flatten.map(&:size).max
+      if pivot_row_index
+        constraints_matrix[pivot_row_index][pivot_column_index] =
+          "*" + constraints_matrix[pivot_row_index][pivot_column_index]
+      end
+      max = (
+        objective_vector + rhs_values_vector + constraints_matrix + ["1234567"]
+      ).flatten.map(&:size).max
       result = []
       result << objective_vector.map {|coefficient| coefficient.rjust(max, " ") }
       constraints_matrix.zip(rhs_values_vector) do |constraint_row, rhs_value|
-        result << (constraint_row + [rhs_value]).map {|constraints_matrix| constraints_matrix.rjust(max, " ") }
+        result << (constraint_row + [rhs_value]).map do |constraints_matrix|
+          constraints_matrix.rjust(max, " ")
+        end
         result.last.insert(constraint_row.length, "|")
       end
       lines = result.map {|rhs_values_vector| rhs_values_vector.join("  ") }
