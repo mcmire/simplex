@@ -7,15 +7,17 @@ module Simplex
     attr_accessor :max_pivots
 
     def initialize(
-      objective_coefficients_vector: objective_coefficients_vector,
+      objective_vector: objective_vector,
       constraints_matrix: constraints_matrix,
-      rhs_values_vector: rhs_values_vector
+      rhs_values_vector: rhs_values_vector,
+      num_constraints: num_constraints,
+      num_non_slack_vars: num_non_slack_vars
     )
-      @objective_coefficients_vector = objective_coefficients_vector
+      @objective_vector = objective_vector
       @constraints_matrix = constraints_matrix
       @rhs_values_vector = rhs_values_vector
-      @num_non_slack_vars = @constraints_matrix.first.to_a.length
-      @num_constraints    = @rhs_values_vector.to_a.length
+      @num_constraints    = num_constraints
+      @num_non_slack_vars = num_non_slack_vars
 
       @num_vars = @num_non_slack_vars + @num_constraints
       @basic_vars = (@num_non_slack_vars...@num_vars).to_a
@@ -41,7 +43,10 @@ module Simplex
 
       @basic_vars.each do |basic_var|
         require 'pp'
-        pp constraints_matrix: @constraints_matrix, row_indices: row_indices
+        pp basic_var: basic_var,
+           constraints_matrix: @constraints_matrix,
+           row_indices: row_indices,
+           rhs_values_vector: @rhs_values_vector
         row_with_1 = row_indices.detect do |row_ix|
           # todo: this is testing for 1 when it should be testing for -1
           @constraints_matrix[row_ix][basic_var] == 1
@@ -63,12 +68,12 @@ module Simplex
     end
 
     def variables
-      (0...@objective_coefficients_vector.size).to_a
+      (0...@objective_vector.size).to_a
     end
 
     def entering_variable
-      variables.select { |var| @objective_coefficients_vector[var] < 0 }.
-                min_by { |var| @objective_coefficients_vector[var] }
+      variables.select { |var| @objective_vector[var] < 0 }.
+                min_by { |var| @objective_vector[var] }
     end
 
     def pivot
@@ -85,7 +90,7 @@ module Simplex
       @rhs_values_vector[pivot_row] = pivot_ratio * @rhs_values_vector[pivot_row]
 
       # update objective
-      @objective_coefficients_vector -= @objective_coefficients_vector[pivot_column] * @constraints_matrix[pivot_row]
+      @objective_vector -= @objective_vector[pivot_column] * @constraints_matrix[pivot_row]
 
       # update A and B
       (row_indices - [pivot_row]).each do |row_ix|
@@ -139,16 +144,16 @@ module Simplex
       else
         pivot_row = nil
       end
-      num_cols = @objective_coefficients_vector.size + 1
-      objective_coefficients_vector = formatted_values(@objective_coefficients_vector.to_a)
+      num_cols = @objective_vector.size + 1
+      objective_vector = formatted_values(@objective_vector.to_a)
       rhs_values_vector = formatted_values(@rhs_values_vector.to_a)
       constraints_matrix = @constraints_matrix.to_a.map {|ar| formatted_values(ar.to_a) }
       if pivot_row
         constraints_matrix[pivot_row][pivot_column] = "*" + constraints_matrix[pivot_row][pivot_column]
       end
-      max = (objective_coefficients_vector + rhs_values_vector + constraints_matrix + ["1234567"]).flatten.map(&:size).max
+      max = (objective_vector + rhs_values_vector + constraints_matrix + ["1234567"]).flatten.map(&:size).max
       result = []
-      result << objective_coefficients_vector.map {|coefficient| coefficient.rjust(max, " ") }
+      result << objective_vector.map {|coefficient| coefficient.rjust(max, " ") }
       constraints_matrix.zip(rhs_values_vector) do |constraint_row, rhs_value|
         result << (constraint_row + [rhs_value]).map {|constraints_matrix| constraints_matrix.rjust(max, " ") }
         result.last.insert(constraint_row.length, "|")
