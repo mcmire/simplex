@@ -162,7 +162,6 @@ module Simplex
       else
         pivot_row_index = nil
       end
-      num_cols = @objective_vector.size + 1
       objective_vector = formatted_values(@objective_vector)
       rhs_values_vector = formatted_values(@rhs_values_vector)
       constraints_matrix = @constraints_matrix.map do |values|
