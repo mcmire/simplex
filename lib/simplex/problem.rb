@@ -77,7 +77,7 @@ module Simplex
 
     def pivot
       pivot_column_index = entering_variable_index
-      pivot_row_index  pivot_row_index(pivot_column_index)
+      pivot_row_index = pivot_row_index(pivot_column_index)
       raise UnboundedProblem unless pivot_row_index
       leaving_variable_index = basic_variable_index_in_row(pivot_row_index)
       replace_basic_variable(leaving_variable_index, pivot_column_index)
