@@ -1,5 +1,3 @@
-require 'matrix'
-
 module Simplex
   DEFAULT_MAX_PIVOTS = 10_000
 
@@ -24,7 +22,7 @@ module Simplex
 
       @pivot_count = 0
       @max_pivots = DEFAULT_MAX_PIVOTS
-      @solution = Vector[*([0]*@num_vars)]
+      @solution = Array.new(@num_vars, 0)
 
       update_solution
     end
@@ -35,7 +33,7 @@ module Simplex
     end
 
     def current_solution
-      @solution.to_a[0...@num_non_slack_vars]
+      @solution[0...@num_non_slack_vars]
     end
 
     def update_solution
@@ -86,17 +84,31 @@ module Simplex
       pivot_ratio = Rational(1, @constraints_matrix[pivot_row][pivot_column])
 
       # update pivot row
-      @constraints_matrix[pivot_row] *= pivot_ratio
-      @rhs_values_vector[pivot_row] = pivot_ratio * @rhs_values_vector[pivot_row]
+      @constraints_matrix[pivot_row] = vector_multiply(
+        @constraints_matrix[pivot_row],
+        pivot_ratio
+      )
+      @rhs_values_vector[pivot_row] =
+        pivot_ratio *
+        @rhs_values_vector[pivot_row]
 
       # update objective
-      @objective_vector -= @objective_vector[pivot_column] * @constraints_matrix[pivot_row]
+      @objective_vector = vector_subtract(
+        @objective_vector,
+        vector_multiply(
+          @constraints_matrix[pivot_row],
+          @objective_vector[pivot_column]
+        )
+      )
 
       # update A and B
       (row_indices - [pivot_row]).each do |row_ix|
         r = @constraints_matrix[row_ix][pivot_column]
-        @constraints_matrix[row_ix] -= r * @constraints_matrix[pivot_row]
-        @rhs_values_vector[row_ix] -= r * @rhs_values_vector[pivot_row]
+        @constraints_matrix[row_ix] = vector_subtract(
+          @constraints_matrix[row_ix],
+          vector_multiply(@constraints_matrix[pivot_row], r)
+        )
+        @rhs_values_vector[row_ix] -= @rhs_values_vector[pivot_row] * r
       end
 
       update_solution
@@ -145,9 +157,9 @@ module Simplex
         pivot_row = nil
       end
       num_cols = @objective_vector.size + 1
-      objective_vector = formatted_values(@objective_vector.to_a)
-      rhs_values_vector = formatted_values(@rhs_values_vector.to_a)
-      constraints_matrix = @constraints_matrix.to_a.map {|ar| formatted_values(ar.to_a) }
+      objective_vector = formatted_values(@objective_vector)
+      rhs_values_vector = formatted_values(@rhs_values_vector)
+      constraints_matrix = @constraints_matrix.map {|values| formatted_values(values) }
       if pivot_row
         constraints_matrix[pivot_row][pivot_column] = "*" + constraints_matrix[pivot_row][pivot_column]
       end
@@ -183,6 +195,16 @@ module Simplex
 
     def assert(boolean)
       raise unless boolean
+    end
+
+    def vector_multiply(vector, scalar)
+      vector.map { |value| value * scalar }
+    end
+
+    def vector_subtract(vector1, vector2)
+      vector1.zip(vector2).map do |value1, value2|
+        value1 - value2
+      end
     end
   end
 end
