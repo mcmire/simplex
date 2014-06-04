@@ -32,6 +32,7 @@ module Simplex
       update_solution
     end
 
+    # TODO: Check objective - if all are negative or zero then stop
     def solution
       solve
       current_solution
@@ -67,6 +68,7 @@ module Simplex
         pivot
       end
     end
+
 
     def can_improve?
       !!entering_variable_index
@@ -137,17 +139,18 @@ module Simplex
         [
           row_index,
           constraint_value,
-          rhs_value,
-          Rational(rhs_value, constraint_value)
+          rhs_value
         ]
-      }.reject { |_, constraint_value, _, _|
+      }.reject { |_, constraint_value, _|
         constraint_value == 0
-      }.reject { |_, constraint_value, rhs_value, _|
+      }.reject { |_, constraint_value, rhs_value|
         (rhs_value < 0) ^ (constraint_value < 0) # negative sign check
       }
 
-      row_index, _, _, _ =
-        last_min_by(eligible_values) { |_, _, _, pivot_ratio| pivot_ratio }
+      row_index, _, _ =
+        last_min_by(eligible_values) { |_, constraint_value, rhs_value|
+          Rational(rhs_value, constraint_value)
+        }
 
       row_index
     end
