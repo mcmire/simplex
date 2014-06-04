@@ -63,12 +63,8 @@ module Simplex
     end
 
     def build_objective_vector
-      coefficients_on_opposite_side_of_equation =
-        objective_coefficients.map { |coefficient| -1 * coefficient }
-
       slack_variable_placeholders = Array.new(number_of_constraints, 0)
-
-      coefficients_on_opposite_side_of_equation + slack_variable_placeholders
+      objective_coefficients + slack_variable_placeholders
     end
 
     def build_constraints_matrix
