@@ -432,25 +432,25 @@ class SimplexTest < Minitest::Test
 
   def test_minimization_problem
     problem = Simplex.minimization_problem do |p|
-      p.objective_coefficients = [2, 1, 2]
+      p.objective_coefficients = [0.12, 0.15]
       p.add_constraint(
-        coefficients: [1, 5, 1],
-        operator: :<=,
+        coefficients: [60, 60],
+        operator: :>=,
         rhs_value: 300
       )
       p.add_constraint(
-        coefficients: [1, 2, 1],
+        coefficients: [12, 6],
         operator: :>=,
-        rhs_value: 50
+        rhs_value: 36
       )
       p.add_constraint(
-        coefficients: [2, 4, 1],
+        coefficients: [10, 30],
         operator: :>=,
-        rhs_value: 80
+        rhs_value: 90
       )
     end
 
     solution = problem.solve
-    # TODO
+    assert_equal [3, 2], solution
   end
 end
