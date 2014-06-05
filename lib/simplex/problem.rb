@@ -28,8 +28,6 @@ module Simplex
 
       @pivot_count = 0
       @solution = Array.new(@number_of_variables, 0)
-
-      update_solution
     end
 
     # TODO: Check objective - if all are negative or zero then stop
@@ -39,26 +37,7 @@ module Simplex
     end
 
     def current_solution
-      @solution[0...@number_of_decision_variables]
-    end
-
-    def update_solution
-      @solution = Array.new(@number_of_variables, 0)
-
-      # TODO: A better way to do this is to keep track of what the original
-      # basic variables were and then select the proper rows from rhs_values
-      @basic_variable_indices.each do |basic_variable_index|
-        require 'pp'
-        pp basic_variable_index: basic_variable_index,
-           constraints_matrix: @constraints_matrix,
-           row_indices: row_indices,
-           rhs_values_vector: @rhs_values_vector
-        row_with_1 = row_indices.detect do |row_index|
-          # todo: this is testing for 1 when it should be testing for -1
-          @constraints_matrix[row_index][basic_variable_index] == 1
-        end
-        @solution[basic_variable_index] = @rhs_values_vector[row_with_1]
-      end
+      @rhs_values_vector
     end
 
     def solve
@@ -68,7 +47,6 @@ module Simplex
         pivot
       end
     end
-
 
     def can_improve?
       !!entering_variable_index
@@ -94,16 +72,31 @@ module Simplex
       pivot_ratio =
         Rational(1, @constraints_matrix[pivot_row_index][pivot_column_index])
 
-      # update pivot row
+      # We want to make the pivot element 1 if it's not, so divide all values
+      # in the pivot row by this value.
       @constraints_matrix[pivot_row_index] = vector_multiply(
         @constraints_matrix[pivot_row_index],
         pivot_ratio
       )
+      # Include the RHS value in this too.
       @rhs_values_vector[pivot_row_index] =
-        pivot_ratio *
-        @rhs_values_vector[pivot_row_index]
+        @rhs_values_vector[pivot_row_index] *
+        pivot_ratio
 
-      # update objective
+      # Now for all of the other rows we want to subtract an appropriate
+      # multiple of the pivot row. This multiple is the intersection of the
+      # pivot column and row in question. This causes all of the other elements
+      # in the pivot column to become 0.
+      (row_indices - [pivot_row_index]).each do |row_index|
+        multiple = @constraints_matrix[row_index][pivot_column_index]
+        @constraints_matrix[row_index] = vector_subtract(
+          @constraints_matrix[row_index],
+          vector_multiply(@constraints_matrix[pivot_row_index], multiple)
+        )
+        @rhs_values_vector[row_index] -=
+          @rhs_values_vector[pivot_row_index] * multiple
+      end
+      # Include the objective in this too.
       @objective_vector = vector_subtract(
         @objective_vector,
         vector_multiply(
@@ -112,17 +105,7 @@ module Simplex
         )
       )
 
-      # update A and B
-      (row_indices - [pivot_row_index]).each do |row_index|
-        r = @constraints_matrix[row_index][pivot_column_index]
-        @constraints_matrix[row_index] = vector_subtract(
-          @constraints_matrix[row_index],
-          vector_multiply(@constraints_matrix[pivot_row_index], r)
-        )
-        @rhs_values_vector[row_index] -= @rhs_values_vector[pivot_row_index] * r
-      end
-
-      update_solution
+      #update_solution
     end
 
     def replace_basic_variable(from, to)
@@ -219,10 +202,6 @@ module Simplex
         end
       end
       best_element
-    end
-
-    def assert(boolean)
-      raise unless boolean
     end
 
     def vector_multiply(vector, scalar)
