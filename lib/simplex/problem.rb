@@ -7,13 +7,13 @@ module Simplex
       constraints_matrix: constraints_matrix,
       rhs_values_vector: rhs_values_vector,
       number_of_constraints: number_of_constraints,
-      number_of_decision_variables: number_of_decision_variables
+      number_of_non_slack_variables: number_of_non_slack_variables
     )
       @objective_vector = objective_vector
       @constraints_matrix = constraints_matrix
       @rhs_values_vector = rhs_values_vector
       @number_of_constraints = number_of_constraints
-      @number_of_decision_variables = number_of_decision_variables
+      @number_of_non_slack_variables = number_of_non_slack_variables
 
       # .- decision -. slack   rhs
       # +---+---+----+---+---++----+
@@ -23,54 +23,43 @@ module Simplex
       # +---+---+----+---+---++----+
       #  '--- constraints ---'
 
-      @number_of_variables = @number_of_decision_variables + @number_of_constraints
-      @basic_variable_indices = (@number_of_decision_variables...@number_of_variables).to_a
+      @number_of_slack_variables = @number_of_constraints
+      @number_of_variables = @number_of_non_slack_variables + @number_of_slack_variables
+      # choose one, doesn't matter
+      @column_indices = (0...@objective_vector.size).to_a
+      @row_indices = (0...@constraints_matrix.length).to_a
+      @non_slack_variable_indices = (0...@number_of_non_slack_variables).to_a
+      @slack_variable_indices = (@number_of_non_slack_variables...@number_of_variables).to_a
 
       @pivot_count = 0
-      @solution = Array.new(@number_of_variables, 0)
-    end
-
-    # TODO: Check objective - if all are negative or zero then stop
-    def solution
-      solve
-      current_solution
-    end
-
-    def current_solution
-      @rhs_values_vector
+      @basic_variable_indices_by_rhs_value_index = @slack_variable_indices[0...@number_of_constraints]
+      @solution = nil
     end
 
     def solve
-      while can_improve?
-        @pivot_count += 1
-        raise "Too many pivots" if @pivot_count > DEFAULT_MAX_PIVOTS
-        pivot
+      unless @solution
+        while can_improve?
+          @pivot_count += 1
+          raise "Too many pivots" if @pivot_count > DEFAULT_MAX_PIVOTS
+          pivot
+        end
       end
+
+      @solution = assemble_solution
     end
 
     def can_improve?
-      !!entering_variable_index
-    end
-
-    def variable_indices
-      (0...@objective_vector.size).to_a
-    end
-
-    def entering_variable_index
-      variable_indices.
-        select { |index| @objective_vector[index] > 0 }.
-        max_by { |index| @objective_vector[index] }
+      @pivot_column_index = determine_entering_variable_index
+      !!@pivot_column_index
     end
 
     def pivot
-      pivot_column_index = entering_variable_index
-      pivot_row_index = pivot_row_index(pivot_column_index)
+      pivot_row_index = determine_pivot_row_index(@pivot_column_index)
       raise UnboundedProblem unless pivot_row_index
-      leaving_variable_index = basic_variable_index_in_row(pivot_row_index)
-      replace_basic_variable(leaving_variable_index, pivot_column_index)
+      replace_basic_variable(pivot_row_index, @pivot_column_index)
 
       pivot_ratio =
-        Rational(1, @constraints_matrix[pivot_row_index][pivot_column_index])
+        Rational(1, @constraints_matrix[pivot_row_index][@pivot_column_index])
 
       # We want to make the pivot element 1 if it's not, so divide all values
       # in the pivot row by this value.
@@ -87,8 +76,8 @@ module Simplex
       # multiple of the pivot row. This multiple is the intersection of the
       # pivot column and row in question. This causes all of the other elements
       # in the pivot column to become 0.
-      (row_indices - [pivot_row_index]).each do |row_index|
-        multiple = @constraints_matrix[row_index][pivot_column_index]
+      (@row_indices - [pivot_row_index]).each do |row_index|
+        multiple = @constraints_matrix[row_index][@pivot_column_index]
         @constraints_matrix[row_index] = vector_subtract(
           @constraints_matrix[row_index],
           vector_multiply(@constraints_matrix[pivot_row_index], multiple)
@@ -101,22 +90,53 @@ module Simplex
         @objective_vector,
         vector_multiply(
           @constraints_matrix[pivot_row_index],
-          @objective_vector[pivot_column_index]
+          @objective_vector[@pivot_column_index]
         )
       )
-
-      #update_solution
     end
 
-    def replace_basic_variable(from, to)
-      @basic_variable_indices.delete(from)
-      @basic_variable_indices << to
-      # TODO: why is it necessary to sort them?
-      @basic_variable_indices.sort!
+    def formatted_tableau
+      if can_improve?
+        pivot_row_index = determine_pivot_row_index(@pivot_column_index)
+      else
+        pivot_row_index = nil
+      end
+      objective_vector = formatted_values(@objective_vector)
+      rhs_values_vector = formatted_values(@rhs_values_vector)
+      constraints_matrix = @constraints_matrix.map do |values|
+        formatted_values(values)
+      end
+      if pivot_row_index
+        constraints_matrix[pivot_row_index][@pivot_column_index] =
+          "*" + constraints_matrix[pivot_row_index][@pivot_column_index]
+      end
+      max = (
+        objective_vector + rhs_values_vector + constraints_matrix
+      ).flatten.map(&:size).max
+      result = []
+      result << objective_vector.map {|coefficient| coefficient.rjust(max, " ") }
+      constraints_matrix.zip(rhs_values_vector) do |constraint_row, rhs_value|
+        result << (constraint_row + [rhs_value]).map do |constraints_matrix|
+          constraints_matrix.rjust(max, " ")
+        end
+        result.last.insert(constraint_row.length, "|")
+      end
+      lines = result.map {|rhs_values_vector| rhs_values_vector.join("  ") }
+      max_line_length = lines.map(&:length).max
+      lines.insert(1, "-"*max_line_length)
+      lines.join("\n")
     end
 
-    def pivot_row_index(column_index)
-      eligible_values = row_indices.map { |row_index|
+    private
+
+    def determine_entering_variable_index
+      @column_indices.
+        select { |index| @objective_vector[index] < 0 }.
+        min_by { |index| @objective_vector[index] }
+    end
+
+    def determine_pivot_row_index(column_index)
+      eligible_values = @row_indices.map { |row_index|
         constraint_value = @constraints_matrix[row_index][column_index]
         rhs_value = @rhs_values_vector[row_index]
         [
@@ -138,57 +158,31 @@ module Simplex
       row_index
     end
 
-    # TODO: Keep better track of this
-    def basic_variable_index_in_row(pivot_row_index)
-      column_indices.detect do |column_index|
-        @constraints_matrix[pivot_row_index][column_index] == 1 &&
-          @basic_variable_indices.include?(column_index)
-      end
+    def replace_basic_variable(rhs_value_index, entering_variable_index)
+      @basic_variable_indices_by_rhs_value_index[rhs_value_index] = entering_variable_index
     end
 
-    def row_indices
-      (0...@constraints_matrix.length).to_a
-    end
+    def assemble_solution
+      solution = Array.new(@number_of_non_slack_variables, 0)
 
-    def column_indices
-      (0...@constraints_matrix.first.size).to_a
-    end
-
-    def formatted_tableau
-      if can_improve?
-        pivot_column_index = entering_variable_index
-        pivot_row_index    = pivot_row_index(pivot_column_index)
-      else
-        pivot_row_index = nil
-      end
-      objective_vector = formatted_values(@objective_vector)
-      rhs_values_vector = formatted_values(@rhs_values_vector)
-      constraints_matrix = @constraints_matrix.map do |values|
-        formatted_values(values)
-      end
-      if pivot_row_index
-        constraints_matrix[pivot_row_index][pivot_column_index] =
-          "*" + constraints_matrix[pivot_row_index][pivot_column_index]
-      end
-      max = (
-        objective_vector + rhs_values_vector + constraints_matrix + ["1234567"]
-      ).flatten.map(&:size).max
-      result = []
-      result << objective_vector.map {|coefficient| coefficient.rjust(max, " ") }
-      constraints_matrix.zip(rhs_values_vector) do |constraint_row, rhs_value|
-        result << (constraint_row + [rhs_value]).map do |constraints_matrix|
-          constraints_matrix.rjust(max, " ")
+      @basic_variable_indices_by_rhs_value_index.
+        each_with_index do |variable_index, rhs_value_index|
+          if @non_slack_variable_indices.include?(variable_index)
+            solution[variable_index] = @rhs_values_vector[rhs_value_index]
+          end
         end
-        result.last.insert(constraint_row.length, "|")
-      end
-      lines = result.map {|rhs_values_vector| rhs_values_vector.join("  ") }
-      max_line_length = lines.map(&:length).max
-      lines.insert(1, "-"*max_line_length)
-      lines.join("\n")
+
+      solution
     end
 
     def formatted_values(array)
-      array.map {|value| "%2.3f" % value }
+      array.map do |value|
+        if value.denominator == 1
+          value.numerator.to_s
+        else
+          value.to_s
+        end
+      end
     end
 
     # like Enumerable#min_by except if multiple values are minimum 

@@ -31,7 +31,7 @@ module Simplex
       end
 
       @number_of_constraints = calculate_number_of_constraints
-      @number_of_decision_variables = calculate_number_of_decision_variables
+      @number_of_non_slack_variables = calculate_number_of_non_slack_variables
 
       objective_vector = build_objective_vector
       constraints_matrix = build_constraints_matrix
@@ -41,14 +41,14 @@ module Simplex
         constraints_matrix: constraints_matrix,
         rhs_values_vector: rhs_values,
         number_of_constraints: number_of_constraints,
-        number_of_decision_variables: number_of_decision_variables
+        number_of_non_slack_variables: number_of_non_slack_variables
       )
     end
 
     private
 
     attr_reader :objective_coefficients, :constraints, :number_of_constraints,
-      :number_of_decision_variables
+      :number_of_non_slack_variables
 
     def rhs_values
       constraints.map { |constraint| constraint[:rhs_value] }
@@ -58,13 +58,17 @@ module Simplex
       rhs_values.size
     end
 
-    def calculate_number_of_decision_variables
+    def calculate_number_of_non_slack_variables
       constraints.first[:coefficients].size
     end
 
     def build_objective_vector
+      coefficients_on_opposite_side_of_equation =
+        objective_coefficients.map { |coefficient| -1 * coefficient }
+
       slack_variable_placeholders = Array.new(number_of_constraints, 0)
-      objective_coefficients + slack_variable_placeholders
+
+      coefficients_on_opposite_side_of_equation + slack_variable_placeholders
     end
 
     def build_constraints_matrix
@@ -73,7 +77,7 @@ module Simplex
         slack_variable_placeholders = Array.new(number_of_constraints, 0)
         values = constraint_coefficients + slack_variable_placeholders
 
-        values[number_of_decision_variables + i] =
+        values[number_of_non_slack_variables + i] =
           determine_slack_value(constraint[:operator])
 
         values
@@ -88,9 +92,9 @@ module Simplex
 
     def determine_slack_value(operator)
       if operator == :>=
-        1
-      else
         -1
+      else
+        1
       end
     end
   end

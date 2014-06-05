@@ -3,6 +3,7 @@ require 'simplex/problem'
 require 'simplex/maximization_problem_builder'
 require 'simplex/minimization_problem_builder'
 require 'simplex/unbounded_problem'
+require 'pp'
 
 module Simplex
   class << self

@@ -9,16 +9,17 @@ class SimplexTest < Minitest::Test
       p.objective_coefficients = [1, 1]
       p.add_constraint(
         coefficients: [2, 1],
-        operator: :>=,
+        operator: :<=,
         rhs_value: 4
       )
       p.add_constraint(
         coefficients: [1, 2],
-        operator: :>=,
+        operator: :<=,
         rhs_value: 3
       )
     end
-    solution = problem.solution
+
+    solution = problem.solve
     assert_equal [Rational(5, 3), Rational(2, 3)], solution
   end
 
@@ -27,16 +28,16 @@ class SimplexTest < Minitest::Test
       p.objective_coefficients = [3, 4]
       p.add_constraint(
         coefficients: [1, 1],
-        operator: :>=,
+        operator: :<=,
         rhs_value: 4
       )
       p.add_constraint(
         coefficients: [2, 1],
-        operator: :>=,
+        operator: :<=,
         rhs_value: 5
       )
     end
-    solution = problem.solution
+    solution = problem.solve
     assert_equal [0, 4], solution
   end
 
@@ -45,16 +46,17 @@ class SimplexTest < Minitest::Test
       p.objective_coefficients = [2, -1]
       p.add_constraint(
         coefficients: [1, 2],
-        operator: :>=,
+        operator: :<=,
         rhs_value: 6
       )
       p.add_constraint(
         coefficients: [3, 2],
-        operator: :>=,
+        operator: :<=,
         rhs_value: 12
       )
     end
-    solution = problem.solution
+
+    solution = problem.solve
     assert_equal [4, 0], solution
   end
 
@@ -63,21 +65,21 @@ class SimplexTest < Minitest::Test
       p.objective_coefficients = [60, 90, 300]
       p.add_constraint(
         coefficients: [1, 1, 1],
-        operator: :>=,
+        operator: :<=,
         rhs_value: 600
       )
       p.add_constraint(
         coefficients: [1, 3, 0],
-        operator: :>=,
+        operator: :<=,
         rhs_value: 600
       )
       p.add_constraint(
         coefficients: [2, 0, 1],
-        operator: :>=,
+        operator: :<=,
         rhs_value: 600
       )
     end
-    solution = problem.solution
+    solution = problem.solve
     assert_equal [0, 0, 600], solution
   end
 
@@ -86,21 +88,21 @@ class SimplexTest < Minitest::Test
       p.objective_coefficients = [70, 210, 140]
       p.add_constraint(
         coefficients: [1, 1, 1],
-        operator: :>=,
+        operator: :<=,
         rhs_value: 100
       )
       p.add_constraint(
         coefficients: [5, 4, 4],
-        operator: :>=,
+        operator: :<=,
         rhs_value: 480
       )
       p.add_constraint(
         coefficients: [40, 20, 30],
-        operator: :>=,
+        operator: :<=,
         rhs_value: 3200
       )
     end
-    solution = problem.solution
+    solution = problem.solve
     assert_equal [0, 100, 0], solution
   end
 
@@ -109,21 +111,21 @@ class SimplexTest < Minitest::Test
       p.objective_coefficients = [2, -1, 2]
       p.add_constraint(
         coefficients: [2, 1, 0],
-        operator: :>=,
+        operator: :<=,
         rhs_value: 10
       )
       p.add_constraint(
         coefficients: [1, 2, -2],
-        operator: :>=,
+        operator: :<=,
         rhs_value: 20
       )
       p.add_constraint(
         coefficients: [0, 1, 2],
-        operator: :>=,
+        operator: :<=,
         rhs_value: 5
       )
     end
-    solution = problem.solution
+    solution = problem.solve
     assert_equal [5, 0, Rational(5, 2)], solution
   end
 
@@ -132,21 +134,21 @@ class SimplexTest < Minitest::Test
       p.objective_coefficients = [11, 16, 15]
       p.add_constraint(
         coefficients: [1, 2, Rational(3, 2)],
-        operator: :>=,
+        operator: :<=,
         rhs_value: 12_000
       )
       p.add_constraint(
         coefficients: [Rational(2, 3), Rational(2, 3), 1],
-        operator: :>=,
+        operator: :<=,
         rhs_value: 4_600
       )
       p.add_constraint(
         coefficients: [Rational(1, 2), Rational(1, 3), Rational(1, 2)],
-        operator: :>=,
+        operator: :<=,
         rhs_value: 2_400
       )
     end
-    solution = problem.solution
+    solution = problem.solve
     assert_equal [600, 5_100, 800], solution
   end
 
@@ -155,21 +157,21 @@ class SimplexTest < Minitest::Test
       p.objective_coefficients = [5, 4, 3]
       p.add_constraint(
         coefficients: [2, 3, 1],
-        operator: :>=,
+        operator: :<=,
         rhs_value: 5
       )
       p.add_constraint(
         coefficients: [4, 1, 2],
-        operator: :>=,
+        operator: :<=,
         rhs_value: 11
       )
       p.add_constraint(
         coefficients: [3, 4, 2],
-        operator: :>=,
+        operator: :<=,
         rhs_value: 8
       )
     end
-    solution = problem.solution
+    solution = problem.solve
     assert_equal [2, 0, 1], solution
   end
 
@@ -178,21 +180,21 @@ class SimplexTest < Minitest::Test
       p.objective_coefficients = [3, 2, -4]
       p.add_constraint(
         coefficients: [1, 4, 0],
-        operator: :>=,
+        operator: :<=,
         rhs_value: 5
       )
       p.add_constraint(
         coefficients: [2, 4, -2],
-        operator: :>=,
+        operator: :<=,
         rhs_value: 6
       )
       p.add_constraint(
         coefficients: [1, 1, -2],
-        operator: :>=,
+        operator: :<=,
         rhs_value: 2
       )
     end
-    solution = problem.solution
+    solution = problem.solve
     assert_equal [4, 0, 1], solution
   end
 
@@ -201,21 +203,21 @@ class SimplexTest < Minitest::Test
       p.objective_coefficients = [2, -1, 8]
       p.add_constraint(
         coefficients: [2, -4, 6],
-        operator: :>=,
+        operator: :<=,
         rhs_value: 3
       )
       p.add_constraint(
         coefficients: [-1, 3, 4],
-        operator: :>=,
+        operator: :<=,
         rhs_value: 2
       )
       p.add_constraint(
         coefficients: [0, 0, 2],
-        operator: :>=,
+        operator: :<=,
         rhs_value: 1
       )
     end
-    solution = problem.solution
+    solution = problem.solve
     assert_equal [Rational(17, 2), Rational(7,2), 0], solution
   end
 
@@ -224,26 +226,26 @@ class SimplexTest < Minitest::Test
       p.objective_coefficients = [100_000, 40_000, 18_000]
       p.add_constraint(
         coefficients: [20, 6, 3],
-        operator: :>=,
+        operator: :<=,
         rhs_value: 182
       )
       p.add_constraint(
         coefficients: [0, 1, 0],
-        operator: :>=,
+        operator: :<=,
         rhs_value: 10
       )
       p.add_constraint(
         coefficients: [-1, -1, 1],
-        operator: :>=,
+        operator: :<=,
         rhs_value: 0
       )
       p.add_constraint(
         coefficients: [-9, 1, 1],
-        operator: :>=,
+        operator: :<=,
         rhs_value: 0
       )
     end
-    solution = problem.solution
+    solution = problem.solve
     assert_equal [4, 10, 14], solution
   end
 
@@ -252,26 +254,26 @@ class SimplexTest < Minitest::Test
       p.objective_coefficients = [1, 2, 1, 2]
       p.add_constraint(
         coefficients: [1, 0, 1, 0],
-        operator: :>=,
+        operator: :<=,
         rhs_value: 1
       )
       p.add_constraint(
         coefficients: [0, 1, 0, 1],
-        operator: :>=,
+        operator: :<=,
         rhs_value: 4
       )
       p.add_constraint(
         coefficients: [1, 1, 0, 0],
-        operator: :>=,
+        operator: :<=,
         rhs_value: 2
       )
       p.add_constraint(
         coefficients: [0, 0, 1, 1],
-        operator: :>=,
+        operator: :<=,
         rhs_value: 2
       )
     end
-    solution = problem.solution
+    solution = problem.solve
     assert_equal [0, 2, 0, 2], solution
   end
 
@@ -280,21 +282,22 @@ class SimplexTest < Minitest::Test
       p.objective_coefficients = [10, -57, -9, -24]
       p.add_constraint(
         coefficients: [0.5, -5.5, -2.5, 9],
-        operator: :>=,
+        operator: :<=,
         rhs_value: 0
       )
       p.add_constraint(
         coefficients: [0.5, -1.5, -0.5, 1],
-        operator: :>=,
+        operator: :<=,
         rhs_value: 0
       )
       p.add_constraint(
         coefficients: [1, 0, 0, 0],
-        operator: :>=,
+        operator: :<=,
         rhs_value: 1
       )
     end
-    solution = problem.solution
+
+    solution = problem.solve
     assert_equal [1, 0, 1, 0], solution
   end
 
@@ -303,17 +306,17 @@ class SimplexTest < Minitest::Test
       p.objective_coefficients = [2, 3, -1, -12]
       p.add_constraint(
         coefficients: [-2, -9, 1, 9],
-        operator: :>=,
+        operator: :<=,
         rhs_value: 0
       )
       p.add_constraint(
         coefficients: [Rational(1, 3), 1, Rational(-1, 3), -2],
-        operator: :>=,
+        operator: :<=,
         rhs_value: 0
       )
     end
     assert_raises Simplex::UnboundedProblem do
-      problem.solution
+      problem.solve
     end
   end
 
@@ -323,17 +326,17 @@ class SimplexTest < Minitest::Test
         p.objective_coefficients = [10, -57, -9]
         p.add_constraint(
           coefficients: [0.5, -5.5, -2.5, 9],
-          operator: :>=,
+          operator: :<=,
           rhs_value: 0
         )
         p.add_constraint(
           coefficients: [0.5, -1.5, -0.5, 1],
-          operator: :>=,
+          operator: :<=,
           rhs_value: 0
         )
         p.add_constraint(
           coefficients: [1, 0, 0, 0],
-          operator: :>=,
+          operator: :<=,
           rhs_value: 1
         )
       end
@@ -344,17 +347,17 @@ class SimplexTest < Minitest::Test
         p.objective_coefficients = [10, -57, -9, 2]
         p.add_constraint(
           coefficients: [0.5, -5.5, 9, 4],
-          operator: :>=,
+          operator: :<=,
           rhs_value: 0
         )
         p.add_constraint(
           coefficients: [0.5, -1.5, 1],
-          operator: :>=,
+          operator: :<=,
           rhs_value: 0
         )
         p.add_constraint(
           coefficients: [1, 0, 0],
-          operator: :>=,
+          operator: :<=,
           rhs_value: 1
         )
       end
@@ -366,17 +369,17 @@ class SimplexTest < Minitest::Test
       p.objective_coefficients = [10, -57, -9, -24]
       p.add_constraint(
         coefficients: [0.5, -5.5, -2.5, 9],
-        operator: :>=,
+        operator: :<=,
         rhs_value: 0
       )
       p.add_constraint(
         coefficients: [0.5, -1.5, -0.5, 1],
-        operator: :>=,
+        operator: :<=,
         rhs_value: 0
       )
       p.add_constraint(
         coefficients: [1, 0, 0, 0],
-        operator: :>=,
+        operator: :<=,
         rhs_value: 1
       )
     end
@@ -386,7 +389,7 @@ class SimplexTest < Minitest::Test
       problem.pivot
     end
 
-    solution = problem.solution
+    solution = problem.solve
     assert_equal [1, 0, 1, 0], solution
   end
 
@@ -395,16 +398,16 @@ class SimplexTest < Minitest::Test
       p.objective_coefficients = [25, 20]
       p.add_constraint(
         coefficients: [20, 12],
-        operator: :>=,
+        operator: :<=,
         rhs_value: 1800
       )
       p.add_constraint(
         coefficients: [1, 1],
-        operator: :>=,
+        operator: :<=,
         rhs_value: 8 * 15
       )
     end
-    solution = problem.solution
+    solution = problem.solve
     assert_equal [45, 75], solution
   end
 
@@ -413,17 +416,17 @@ class SimplexTest < Minitest::Test
       p.objective_coefficients = [1, 1, 1]
       p.add_constraint(
         coefficients: [3, 1, -2],
-        operator: :>=,
+        operator: :<=,
         rhs_value: 5
       )
       p.add_constraint(
         coefficients: [4, 3, 0],
-        operator: :>=,
+        operator: :<=,
         rhs_value: 7
       )
     end
     assert_raises Simplex::UnboundedProblem do
-      problem.solution
+      problem.solve
     end
   end
 
@@ -447,13 +450,7 @@ class SimplexTest < Minitest::Test
       )
     end
 
-    while problem.can_improve?
-      puts problem.formatted_tableau
-      problem.pivot
-    end
-
-    solution = problem.solution
-    require 'pp'
-    pp solution: solution
+    solution = problem.solve
+    # TODO
   end
 end
