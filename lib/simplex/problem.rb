@@ -57,42 +57,10 @@ module Simplex
       pivot_row_index = determine_pivot_row_index(@pivot_column_index)
       raise UnboundedProblem unless pivot_row_index
       replace_basic_variable(pivot_row_index, @pivot_column_index)
-
       pivot_ratio =
         Rational(1, @constraints_matrix[pivot_row_index][@pivot_column_index])
-
-      # We want to make the pivot element 1 if it's not, so divide all values
-      # in the pivot row by this value.
-      @constraints_matrix[pivot_row_index] = vector_multiply(
-        @constraints_matrix[pivot_row_index],
-        pivot_ratio
-      )
-      # Include the RHS value in this too.
-      @rhs_values_vector[pivot_row_index] =
-        @rhs_values_vector[pivot_row_index] *
-        pivot_ratio
-
-      # Now for all of the other rows we want to subtract an appropriate
-      # multiple of the pivot row. This multiple is the intersection of the
-      # pivot column and row in question. This causes all of the other elements
-      # in the pivot column to become 0.
-      (@row_indices - [pivot_row_index]).each do |row_index|
-        multiple = @constraints_matrix[row_index][@pivot_column_index]
-        @constraints_matrix[row_index] = vector_subtract(
-          @constraints_matrix[row_index],
-          vector_multiply(@constraints_matrix[pivot_row_index], multiple)
-        )
-        @rhs_values_vector[row_index] -=
-          @rhs_values_vector[pivot_row_index] * multiple
-      end
-      # Include the objective in this too.
-      @objective_vector = vector_subtract(
-        @objective_vector,
-        vector_multiply(
-          @constraints_matrix[pivot_row_index],
-          @objective_vector[@pivot_column_index]
-        )
-      )
+      divide_pivot_row_by_pivot_element(pivot_ratio)
+      adjust_non_pivot_rows_so_pivot_row_is_basic(pivot_ratio)
     end
 
     def formatted_tableau
@@ -160,6 +128,45 @@ module Simplex
 
     def replace_basic_variable(rhs_value_index, entering_variable_index)
       @basic_variable_indices_by_rhs_value_index[rhs_value_index] = entering_variable_index
+    end
+
+    def divide_pivot_row_by_pivot_element(pivot_ratio)
+      # We want to make the pivot element 1 if it's not, so divide all values
+      # in the pivot row by this value.
+      @constraints_matrix[pivot_row_index] = vector_multiply(
+        @constraints_matrix[pivot_row_index],
+        pivot_ratio
+      )
+
+      # Include the RHS value in this too.
+      @rhs_values_vector[pivot_row_index] =
+        @rhs_values_vector[pivot_row_index] *
+        pivot_ratio
+    end
+
+    def adjust_non_pivot_rows_so_pivot_row_is_basic(pivot_ratio)
+      # Now for all of the other rows we want to subtract an appropriate
+      # multiple of the pivot row. This multiple is the intersection of the
+      # pivot column and row in question. This causes all of the other elements
+      # in the pivot column to become 0.
+      (@row_indices - [pivot_row_index]).each do |row_index|
+        multiple = @constraints_matrix[row_index][@pivot_column_index]
+        @constraints_matrix[row_index] = vector_subtract(
+          @constraints_matrix[row_index],
+          vector_multiply(@constraints_matrix[pivot_row_index], multiple)
+        )
+        @rhs_values_vector[row_index] -=
+          @rhs_values_vector[pivot_row_index] * multiple
+      end
+
+      # Include the objective in this too.
+      @objective_vector = vector_subtract(
+        @objective_vector,
+        vector_multiply(
+          @constraints_matrix[pivot_row_index],
+          @objective_vector[@pivot_column_index]
+        )
+      )
     end
 
     def assemble_solution
