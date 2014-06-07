@@ -37,6 +37,7 @@ class SimplexTest < Minitest::Test
         rhs_value: 5
       )
     end
+
     solution = problem.solve
     assert_equal [0, 4], solution
   end
@@ -245,6 +246,7 @@ class SimplexTest < Minitest::Test
         rhs_value: 0
       )
     end
+
     solution = problem.solve
     assert_equal [4, 10, 14], solution
   end
@@ -449,14 +451,6 @@ class SimplexTest < Minitest::Test
         rhs_value: 90
       )
     end
-
-    while problem.can_improve?
-      puts
-      puts problem.formatted_tableau
-      problem.pivot
-    end
-    puts
-    puts problem.formatted_tableau
 
     solution = problem.solve
     assert_equal [3, 2], solution

@@ -9,9 +9,6 @@ module Simplex
     private
 
     def parse_arguments
-      pp objective_coefficients: objective_coefficients,
-         constraints: constraints
-
       constraint_coefficient_rows =
         map_constraint_coefficient_rows_out_of(constraints).transpose
       new_objective_coefficients =
@@ -19,6 +16,7 @@ module Simplex
       rhs_values = objective_coefficients
       operators = constraints.map { |constraint| constraint[:operator] }
 
+      # Not quite sure what to do about this just yet...
       if operators.uniq.size > 1
         raise ArgumentError, 'All operators must be the same in a minimization problem'
       end
@@ -42,9 +40,7 @@ module Simplex
       {
         objective_coefficients: new_objective_coefficients,
         constraints: constraints
-      }.tap do |arguments|
-        pp arguments: arguments
-      end
+      }
     end
   end
 
