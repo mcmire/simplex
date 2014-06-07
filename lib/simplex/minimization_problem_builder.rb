@@ -11,8 +11,7 @@ module Simplex
     def parse_arguments
       constraint_coefficient_rows =
         map_constraint_coefficient_rows_out_of(constraints).transpose
-      new_objective_coefficients =
-        map_rhs_values_out_of(constraints)#.map { |value| value * -1 }
+      new_objective_coefficients = map_rhs_values_out_of(constraints)
       rhs_values = objective_coefficients
       operators = constraints.map { |constraint| constraint[:operator] }
 
