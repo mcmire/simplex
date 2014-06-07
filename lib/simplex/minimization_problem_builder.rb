@@ -2,38 +2,55 @@ require 'delegate'
 
 module Simplex
   class MinimizationProblemBuilder < MaximizationProblemBuilder
-    def build
-      unless num_of_values_per_constraint_is_num_of_objective_coefficients?
-        raise ArgumentError, 'Number of values per constraint should be the same as the number of objective coefficients'
-      end
-
-      @number_of_constraints = calculate_number_of_constraints
-      @number_of_non_slack_variables = calculate_number_of_non_slack_variables
-
-      objective_vector = build_objective_vector
-      constraints_matrix = build_constraints_matrix
-
-      MinimizationProblem.new(
-        objective_vector: objective_vector,
-        constraints_matrix: constraints_matrix,
-        rhs_values_vector: rhs_values,
-        number_of_constraints: number_of_constraints,
-        number_of_non_slack_variables: number_of_non_slack_variables
-      )
+    def problem_class
+      MinimizationProblem
     end
 
     private
 
-    def build_objective_vector
-      super.map { |coefficient| -1 * coefficient }
+    def parse_arguments
+      pp objective_coefficients: objective_coefficients,
+         constraints: constraints
+
+      constraint_coefficient_rows =
+        map_constraint_coefficient_rows_out_of(constraints).transpose
+      new_objective_coefficients =
+        map_rhs_values_out_of(constraints)#.map { |value| value * -1 }
+      rhs_values = objective_coefficients
+      operators = constraints.map { |constraint| constraint[:operator] }
+
+      if operators.uniq.size > 1
+        raise ArgumentError, 'All operators must be the same in a minimization problem'
+      end
+
+      operator =
+        if operators[0] == :>=
+          :<=
+        else
+          :>=
+        end
+
+      constraints = constraint_coefficient_rows.zip(rhs_values).
+        map do |coefficients, rhs_value|
+          {
+            coefficients: coefficients,
+            operator: operator,
+            rhs_value: rhs_value
+          }
+        end
+
+      {
+        objective_coefficients: new_objective_coefficients,
+        constraints: constraints
+      }.tap do |arguments|
+        pp arguments: arguments
+      end
     end
   end
 
   class MinimizationProblem < Simplex::Problem
-    def determine_entering_variable_index
-      @column_indices.
-        select { |index| @objective_vector[index] > 0 }.
-        min_by { |index| @objective_vector[index] }
+    def assemble_solution
+      @objective_vector.values_at(*@slack_variable_indices)
     end
   end
 end

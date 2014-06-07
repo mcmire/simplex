@@ -30,19 +30,7 @@ module Simplex
         raise ArgumentError, 'Number of values per constraint should be the same as the number of objective coefficients'
       end
 
-      @number_of_constraints = calculate_number_of_constraints
-      @number_of_non_slack_variables = calculate_number_of_non_slack_variables
-
-      objective_vector = build_objective_vector
-      constraints_matrix = build_constraints_matrix
-
-      Simplex::Problem.new(
-        objective_vector: objective_vector,
-        constraints_matrix: constraints_matrix,
-        rhs_values_vector: rhs_values,
-        number_of_constraints: number_of_constraints,
-        number_of_non_slack_variables: number_of_non_slack_variables
-      )
+      problem_class.new(determine_problem_arguments)
     end
 
     private
@@ -50,19 +38,54 @@ module Simplex
     attr_reader :objective_coefficients, :constraints, :number_of_constraints,
       :number_of_non_slack_variables
 
-    def rhs_values
+    def problem_class
+      Simplex::Problem
+    end
+
+    def parse_arguments
+      {
+        objective_coefficients: objective_coefficients,
+        constraints: constraints
+      }
+    end
+
+    def map_constraint_coefficient_rows_out_of(constraints)
+      constraints.map { |constraint| constraint[:coefficients] }
+    end
+
+    def map_rhs_values_out_of(constraints)
       constraints.map { |constraint| constraint[:rhs_value] }
     end
 
-    def calculate_number_of_constraints
-      rhs_values.size
+    def determine_problem_arguments
+      arguments = parse_arguments
+      rhs_values = map_rhs_values_out_of(arguments[:constraints])
+
+      @number_of_constraints = arguments[:constraints].size
+      @number_of_non_slack_variables = arguments[:constraints].first.size
+
+      objective_vector = build_objective_vector(
+        arguments[:objective_coefficients],
+        @number_of_constraints
+      )
+      constraints_matrix = build_constraints_matrix(
+        arguments[:constraints],
+        @number_of_non_slack_variables
+      )
+      rhs_values_vector = build_rhs_values_vector(rhs_values)
+
+      {
+        number_of_constraints: number_of_constraints,
+        number_of_non_slack_variables: number_of_non_slack_variables,
+        objective_vector: objective_vector,
+        constraints_matrix: constraints_matrix,
+        rhs_values_vector: rhs_values_vector
+      }.tap do |problem_arguments|
+        pp problem_arguments: problem_arguments
+      end
     end
 
-    def calculate_number_of_non_slack_variables
-      constraints.first[:coefficients].size
-    end
-
-    def build_objective_vector
+    def build_objective_vector(objective_coefficients, number_of_constraints)
       coefficients_on_opposite_side_of_equation =
         objective_coefficients.map { |coefficient| -1 * coefficient }
 
@@ -71,17 +94,20 @@ module Simplex
       coefficients_on_opposite_side_of_equation + slack_variable_placeholders
     end
 
-    def build_constraints_matrix
+    def build_constraints_matrix(constraints, number_of_constraints)
       constraints.map.with_index do |constraint, i|
-        constraint_coefficients = constraint[:coefficients].clone
         slack_variable_placeholders = Array.new(number_of_constraints, 0)
-        values = constraint_coefficients + slack_variable_placeholders
+        values = constraint[:coefficients] + slack_variable_placeholders
 
         values[number_of_non_slack_variables + i] =
           determine_slack_value(constraint[:operator])
 
         values
       end
+    end
+
+    def build_rhs_values_vector(rhs_values)
+      rhs_values
     end
 
     def num_of_values_per_constraint_is_num_of_objective_coefficients?

@@ -24,15 +24,18 @@ module Simplex
       #  '--- constraints ---'
 
       @number_of_slack_variables = @number_of_constraints
-      @number_of_variables = @number_of_non_slack_variables + @number_of_slack_variables
-      # choose one, doesn't matter
+      @number_of_variables =
+        @number_of_non_slack_variables + @number_of_slack_variables
+      # choose one, doesn't matter, we choose objective_vector here
       @column_indices = (0...@objective_vector.size).to_a
       @row_indices = (0...@constraints_matrix.length).to_a
       @non_slack_variable_indices = (0...@number_of_non_slack_variables).to_a
-      @slack_variable_indices = (@number_of_non_slack_variables...@number_of_variables).to_a
+      @slack_variable_indices =
+        (@number_of_non_slack_variables...@number_of_variables).to_a
 
       @pivot_count = 0
-      @basic_variable_indices_by_rhs_value_index = @slack_variable_indices[0...@number_of_constraints]
+      @basic_variable_indices_by_rhs_value_index =
+        @slack_variable_indices.dup#[0...@number_of_constraints]
       @solution = nil
     end
 
@@ -59,8 +62,8 @@ module Simplex
       replace_basic_variable(pivot_row_index, @pivot_column_index)
       pivot_ratio =
         Rational(1, @constraints_matrix[pivot_row_index][@pivot_column_index])
-      divide_pivot_row_by_pivot_element(pivot_ratio)
-      adjust_non_pivot_rows_so_pivot_row_is_basic(pivot_ratio)
+      divide_pivot_row_by_pivot_element(pivot_row_index, pivot_ratio)
+      adjust_non_pivot_rows_so_pivot_row_is_basic(pivot_row_index, pivot_ratio)
     end
 
     def formatted_tableau
@@ -130,7 +133,7 @@ module Simplex
       @basic_variable_indices_by_rhs_value_index[rhs_value_index] = entering_variable_index
     end
 
-    def divide_pivot_row_by_pivot_element(pivot_ratio)
+    def divide_pivot_row_by_pivot_element(pivot_row_index, pivot_ratio)
       # We want to make the pivot element 1 if it's not, so divide all values
       # in the pivot row by this value.
       @constraints_matrix[pivot_row_index] = vector_multiply(
@@ -144,7 +147,7 @@ module Simplex
         pivot_ratio
     end
 
-    def adjust_non_pivot_rows_so_pivot_row_is_basic(pivot_ratio)
+    def adjust_non_pivot_rows_so_pivot_row_is_basic(pivot_row_index, pivot_ratio)
       # Now for all of the other rows we want to subtract an appropriate
       # multiple of the pivot row. This multiple is the intersection of the
       # pivot column and row in question. This causes all of the other elements
