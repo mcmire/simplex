@@ -455,4 +455,41 @@ class SimplexTest < Minitest::Test
     solution = problem.solve
     assert_equal [3, 2], solution
   end
+
+  def test_minimization_problem_2
+    problem = Simplex.minimization_problem do |p|
+      p.objective_coefficients = [3, 5]
+      p.add_constraint(
+        coefficients: [6, 0],
+        operator: :>=,
+        rhs_value: 35
+      )
+      p.add_constraint(
+        coefficients: [6, 0],
+        operator: :<=,
+        rhs_value: 60
+      )
+      p.add_constraint(
+        coefficients: [0, 4],
+        operator: :>=,
+        rhs_value: 20
+      )
+      p.add_constraint(
+        coefficients: [0, 4],
+        operator: :<=,
+        rhs_value: 40
+      )
+    end
+
+    while problem.can_improve?
+      puts
+      puts problem.formatted_tableau
+      problem.pivot
+    end
+    puts
+    puts problem.formatted_tableau
+
+    solution = problem.solve
+    assert_equal [3, 2], solution
+  end
 end
