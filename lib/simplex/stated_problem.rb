@@ -1,5 +1,5 @@
 module Simplex
-  class Problem
+  class StatedProblem
     attr_accessor :objective_coefficients
     attr_reader :constraints
 
