@@ -432,6 +432,7 @@ class SimplexTest < Minitest::Test
     end
   end
 
+  # Source: http://college.cengage.com/mathematics/larson/elementary_linear/4e/shared/downloads/c09s4.pdf
   def test_minimization_problem
     problem = Simplex.minimization_problem do |p|
       p.objective_coefficients = [Rational(3, 25), Rational(3, 20)]
