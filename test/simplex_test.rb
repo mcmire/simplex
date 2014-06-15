@@ -478,14 +478,18 @@ class SimplexTest < Minitest::Test
       )
     end
 
-    puts 'initial tableau:'
-    puts problem.formatted_tableau(indicate_pivot_element: false)
-    while problem.can_improve?
+    problem.on :begin do
+      puts 'initial tableau:'
+      puts problem.formatted_tableau(indicate_pivot_element: false)
+    end
+
+    problem.on :analyze_tableau do
+      puts problem.formatted_tableau
       puts
-      problem.pivot(
-        -> { puts problem.formatted_tableau; puts },
-        -> { puts problem.formatted_tableau(indicate_pivot_element: false) }
-      )
+    end
+
+    problem.on :pivot do
+      puts problem.formatted_tableau(indicate_pivot_element: false)
     end
 
     solution = problem.solve
@@ -517,13 +521,19 @@ class SimplexTest < Minitest::Test
       )
     end
 
-    while problem.can_improve?
-      puts
-      puts problem.formatted_tableau
-      problem.pivot
+    problem.before_pivoting do
+      puts 'initial tableau:'
+      puts problem.formatted_tableau(indicate_pivot_element: false)
     end
-    puts
-    puts problem.formatted_tableau
+
+    problem.after_analyzing_tableau do
+      puts problem.formatted_tableau
+      puts
+    end
+
+    problem.after_pivoting do
+      puts problem.formatted_tableau(indicate_pivot_element: false)
+    end
 
     solution = problem.solve
     assert_equal [3, 2], solution

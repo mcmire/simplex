@@ -22,85 +22,76 @@ module Simplex
       @free_variable_indices =
         (number_of_non_free_variables...number_of_variables).to_a
       @variable_names =
-        (1..@number_of_non_free_variables).map { |n| "x#{n}" } +
-        (1..@number_of_free_variables).map { |n| "s#{n}" }
+        (1..number_of_non_free_variables).map { |n| "x#{n}" } +
+        (1..number_of_free_variables).map { |n| "s#{n}" }
 
       @pivot_count = 0
       @categorized_constraint_columns = build_categorized_constraint_columns
-      @basic_variable_indices_by_rhs_value_index = free_variable_indices.dup
+      @basic_variable_indices = free_variable_indices.dup
       @next_pivot = nil
       @converted_basic_column_indices = []
-      @solution = assemble_solution
+      @full_solution = assemble_full_solution
       @solved = false
+
+      @callbacks = Hash.new([])
     end
 
     def solve
+      fire :begin
+
       unless solved?
-        while can_improve?
+        while pivot
           @pivot_count += 1
 
           if pivot_count > DEFAULT_MAX_PIVOTS
             raise 'Too many pivots'
           end
-
-          pivot
         end
 
         @solved = true
       end
 
-      @solution
-    end
-
-    def can_improve?
-      next_pivot.nil? || !next_pivot[:column_index].nil?
+      solution
     end
 
     def pivot(*inspection_blocks)
+      pp 'full_solution so far' => full_solution
+
       puts 'analyzing tableau'
 
       pp categorized_constraint_columns: categorized_constraint_columns
 
       prepare_to_pivot
 
+      if pivot_column_index.nil?
+        return false
+      end
+
       if pivot_row_index.nil?
         raise UnboundedProblem
       end
 
-      if inspection_blocks.any?
-        inspection_blocks[0].call
-      end
+      fire :analyze_tableau
 
       puts 'performing pivot'
 
-      pivot_element = constraints_matrix[pivot_row_index][pivot_column_index]
-      pivot_ratio = Rational(1, pivot_element)
+      updating_converted_basic_column_indices do
+        swap_basic_variable
+        divide_pivot_row_by_pivot_element(pivot_ratio)
+        adjust_non_pivot_rows_so_pivot_column_is_basic(pivot_ratio)
 
-      update_converted_basic_column_indices
-      swap_basic_variable
-      divide_pivot_row_by_pivot_element(pivot_ratio)
-      adjust_non_pivot_rows_so_pivot_column_is_basic(pivot_ratio)
+        fire :pivot
 
-      if inspection_blocks.any?
-        inspection_blocks[1].call
+        @full_solution = assemble_full_solution
       end
 
-      @solution = assemble_solution
-    end
-
-    def update_converted_basic_column_indices
-      if row_indices_with_surplus_variables.any?
-        converted_basic_column_indices << leaving_variable_index
-      else
-        converted_basic_column_indices.clear
-      end
-      pp converted_basic_column_indices: converted_basic_column_indices
+      return true
     end
 
     def formatted_tableau(options = {})
       objective_vector = formatted_values(@objective_vector + [calculated_objective_total]).
         map.with_index do |value, column_index|
-          if basic_variable_indices_by_rhs_value_index.include?(column_index) && options[:indicate_pivot_element] == false
+          if basic_variable_indices.include?(column_index) && options[:indicate_pivot_element] == false
             "\e[33m" + value + "\e[0m"
           else
             value
@@ -120,7 +111,7 @@ module Simplex
       rhs_values_vector = formatted_values(@rhs_values_vector)
 
       variable_names = @variable_names.map.with_index do |variable_name, variable_index|
-        if basic_variable_indices_by_rhs_value_index.include?(variable_index) && options[:indicate_pivot_element] == false
+        if basic_variable_indices.include?(variable_index) && options[:indicate_pivot_element] == false
           "\e[33m" + variable_name + "\e[0m"
         elsif variable_index == pivot_column_index && options[:indicate_pivot_element] != false
           "\e[34m" + variable_name + "\e[0m"
@@ -131,7 +122,7 @@ module Simplex
         end
       end
 
-      basic_variable_names = basic_variable_indices_by_rhs_value_index.map.with_index do |variable_index, row_index|
+      basic_variable_names = basic_variable_indices.map.with_index do |variable_index, row_index|
         variable_name = @variable_names[variable_index]
 
         if row_index == pivot_row_index && options[:indicate_pivot_element] != false
@@ -147,7 +138,7 @@ module Simplex
 
       constraints_matrix.each_with_index do |values, row_index|
         constraints_matrix[row_index] = values.map.with_index do |value, column_index|
-          if basic_variable_indices_by_rhs_value_index.include?(column_index) && options[:indicate_pivot_element] == false
+          if basic_variable_indices.include?(column_index) && options[:indicate_pivot_element] == false
             "\e[33m" + value + "\e[0m"
           elsif pivot_column_index && pivot_row_index
             if row_index == pivot_row_index && column_index == pivot_column_index && options[:indicate_pivot_element] != false
@@ -198,6 +189,14 @@ module Simplex
       lines.join("\n")
     end
 
+    def on(callback_name, &block)
+      callbacks[callback_name] << block
+    end
+
+    def fire(callback_name)
+      callbacks[callback_name].each { |block| block.call }
+    end
+
     private
 
     attr_reader :formulated_problem, :stated_problem, :objective_vector,
@@ -206,8 +205,8 @@ module Simplex
       :number_of_variables, :column_indices, :row_indices, :variable_indices,
       :non_free_variable_indices, :free_variable_indices, :variable_names,
       :pivot_count, :categorized_constraint_columns,
-      :basic_variable_indices_by_rhs_value_index, :converted_basic_column_indices,
-      :solution, :next_pivot
+      :basic_variable_indices, :converted_basic_column_indices,
+      :full_solution, :next_pivot, :callbacks
 
     def solved?
       @solved
@@ -222,6 +221,7 @@ module Simplex
 
           if free_variable_indices.include?(column_index) && value != 0
             column[:basic] = {
+              value: value,
               kind: (value == 1) ? :slack : :surplus,
               row_index: row_index
             }
@@ -232,6 +232,10 @@ module Simplex
       columns
     end
 
+    def non_standard_problem?
+      full_solution.values_at(*free_variable_indices).any? { |value| value < 0 }
+    end
+
     # TODO: if this gets too slow, optimize
     def row_indices_with_surplus_variables
       categorized_constraint_columns.
@@ -240,11 +244,11 @@ module Simplex
     end
 
     # TODO: if this gets too slow, optimize
-    def surplus_variable_indices
-      column_indices.select do |column_index|
-        categorized_constraint_columns[column_index][:type] == :surplus
-      end
-    end
+    #def surplus_variable_indices
+      #column_indices.select do |column_index|
+        #categorized_constraint_columns[column_index][:type] == :surplus
+      #end
+    #end
 
     def pivot_row_index
       if next_pivot
@@ -261,8 +265,20 @@ module Simplex
 
     def leaving_variable_index
       if pivot_row_index
-        basic_variable_indices_by_rhs_value_index[pivot_row_index]
+        basic_variable_indices[pivot_row_index]
       end
+    end
+
+    def pivot_element
+      constraints_matrix[pivot_row_index][pivot_column_index]
+    end
+
+    def pivot_ratio
+      Rational(1, pivot_element)
+    end
+
+    def non_basic_variable_indices
+      variable_indices - basic_variable_indices
     end
 
     def prepare_to_pivot
@@ -285,16 +301,7 @@ module Simplex
     end
 
     def determine_indices_of_pivot_column_candidates
-      candidate_column_indices =
-        if row_indices_with_surplus_variables.any?
-          variable_indices -
-            basic_variable_indices_by_rhs_value_index -
-            surplus_variable_indices
-        else
-          basic_variable_indices_by_rhs_value_index
-        end
-
-      candidate_column_indices - converted_basic_column_indices
+      non_basic_variable_indices - converted_basic_column_indices
     end
 
     def determine_pivot_row_index
@@ -306,7 +313,7 @@ module Simplex
     end
 
     def determine_indices_of_pivot_row_candidates
-      if row_indices_with_surplus_variables.any?
+      if non_standard_problem?
         row_indices_with_surplus_variables
       else
         row_indices
@@ -336,18 +343,38 @@ module Simplex
       row_index
     end
 
-    def swap_basic_variable
-      pp entering_variable_index: entering_variable_index,
-         pivot_row_index: pivot_row_index,
-         leaving_variable_index: leaving_variable_index
+    def updating_converted_basic_column_indices
+      _leaving_variable_index = leaving_variable_index
 
-      basic_variable_indices_by_rhs_value_index[pivot_row_index] =
+      yield
+
+      if non_standard_problem?
+        converted_basic_column_indices << _leaving_variable_index
+      else
+        converted_basic_column_indices.clear
+      end
+      pp converted_basic_column_indices: converted_basic_column_indices
+    end
+
+    def swap_basic_variable
+      _entering_variable_index = entering_variable_index
+      _leaving_variable_index = leaving_variable_index
+
+      pp entering_variable_index: _entering_variable_index,
+         pivot_row_index: pivot_row_index,
+         leaving_variable_index: _leaving_variable_index
+
+      basic_variable_indices[pivot_row_index] =
         entering_variable_index
 
-      entering_column = categorized_constraint_columns[entering_variable_index]
-      entering_column[:basic] = { kind: :slack, row_index: pivot_row_index }
+      entering_column = categorized_constraint_columns[_entering_variable_index]
+      entering_column[:basic] = {
+        kind: :slack,
+        row_index: pivot_row_index,
+        value: pivot_element
+      }
 
-      leaving_column = categorized_constraint_columns[leaving_variable_index]
+      leaving_column = categorized_constraint_columns[_leaving_variable_index]
       leaving_column.delete(:basic)
     end
 
@@ -390,22 +417,25 @@ module Simplex
       ))
     end
 
-    def assemble_solution
-      solution = Array.new(number_of_non_free_variables, 0)
+    def assemble_full_solution
+      full_solution = Array.new(number_of_variables, 0)
 
-      basic_variable_indices_by_rhs_value_index.
+      basic_variable_indices.
         each_with_index do |variable_index, rhs_value_index|
-          if non_free_variable_indices.include?(variable_index)
-            solution[variable_index] = rhs_values_vector[rhs_value_index]
-          end
+          value = categorized_constraint_columns[variable_index][:basic][:value]
+          full_solution[variable_index] = value * rhs_values_vector[rhs_value_index]
         end
 
-      solution
+      full_solution
+    end
+
+    def solution
+      full_solution[0...@number_of_non_free_variables]
     end
 
     def calculated_objective_total
       pp objective_coefficients: formulated_problem.objective_coefficients,
-         solution: solution
+         full_solution: full_solution
 
       formulated_problem.objective_coefficients.zip(solution).
         inject(0) do |total, (coefficient_value, variable_value)|
