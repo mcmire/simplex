@@ -366,35 +366,7 @@ class SimplexTest < Minitest::Test
     end
   end
 
-  def test_manual_iteration
-    problem = Simplex.maximization_problem do |p|
-      p.objective_coefficients = [10, -57, -9, -24]
-      p.add_constraint(
-        coefficients: [0.5, -5.5, -2.5, 9],
-        operator: :<=,
-        rhs_value: 0
-      )
-      p.add_constraint(
-        coefficients: [0.5, -1.5, -0.5, 1],
-        operator: :<=,
-        rhs_value: 0
-      )
-      p.add_constraint(
-        coefficients: [1, 0, 0, 0],
-        operator: :<=,
-        rhs_value: 1
-      )
-    end
-
-    while problem.can_improve?
-      assert problem.formatted_tableau.is_a?(String)
-      problem.pivot
-    end
-
-    solution = problem.solve
-    assert_equal [1, 0, 1, 0], solution
-  end
-
+  # Source: https://www.math.washington.edu/~burke/crs/407/notes/section1.pdf
   def test_cup_factory
     problem = Simplex.maximization_problem do |p|
       p.objective_coefficients = [25, 20]
@@ -478,20 +450,6 @@ class SimplexTest < Minitest::Test
       )
     end
 
-    problem.on :begin do
-      puts 'initial tableau:'
-      puts problem.formatted_tableau(indicate_pivot_element: false)
-    end
-
-    problem.on :analyze_tableau do
-      puts problem.formatted_tableau
-      puts
-    end
-
-    problem.on :pivot do
-      puts problem.formatted_tableau(indicate_pivot_element: false)
-    end
-
     solution = problem.solve
     assert_equal [0, 36, 14], solution
   end
@@ -517,52 +475,7 @@ class SimplexTest < Minitest::Test
       )
     end
 
-    #problem.debug!
-
     solution = problem.solve
     assert_equal [0, 0, 2], solution
-  end
-
-  def test_minimization_problem_2
-    problem = Simplex.minimization_problem do |p|
-      p.objective_coefficients = [3, 5]
-      p.add_constraint(
-        coefficients: [6, 0],
-        operator: :>=,
-        rhs_value: 35
-      )
-      p.add_constraint(
-        coefficients: [6, 0],
-        operator: :<=,
-        rhs_value: 60
-      )
-      p.add_constraint(
-        coefficients: [0, 4],
-        operator: :>=,
-        rhs_value: 20
-      )
-      p.add_constraint(
-        coefficients: [0, 4],
-        operator: :<=,
-        rhs_value: 40
-      )
-    end
-
-    problem.before_pivoting do
-      puts 'initial tableau:'
-      puts problem.formatted_tableau(indicate_pivot_element: false)
-    end
-
-    problem.after_analyzing_tableau do
-      puts problem.formatted_tableau
-      puts
-    end
-
-    problem.after_pivoting do
-      puts problem.formatted_tableau(indicate_pivot_element: false)
-    end
-
-    solution = problem.solve
-    assert_equal [3, 2], solution
   end
 end

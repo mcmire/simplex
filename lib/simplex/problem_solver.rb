@@ -57,10 +57,9 @@ module Simplex
 
         puts
         puts '--- ANALYZING TABLEAU ---'
-        #inspect 'Categorized constraint columns', categorized_constraint_columns
       end
 
-      on :determine_entering_variable_index do
+      on :determine_entering_variable_index do |column_indices|
         inspect 'Pivot column candidate indices', column_indices
       end
 
@@ -299,19 +298,11 @@ module Simplex
       full_solution.values_at(*free_variable_indices).none? { |value| value < 0 }
     end
 
-    # TODO: if this gets too slow, optimize
     def row_indices_with_surplus_variables
       categorized_constraint_columns.
         select { |column| column[:basic] && column[:basic][:kind] == :surplus }.
         map { |column| column[:basic][:row_index] }
     end
-
-    # TODO: if this gets too slow, optimize
-    #def surplus_variable_indices
-      #column_indices.select do |column_index|
-        #categorized_constraint_columns[column_index][:type] == :surplus
-      #end
-    #end
 
     def pivot_row_index
       if next_pivot
@@ -367,7 +358,7 @@ module Simplex
     end
 
     def determine_indices_of_pivot_column_candidates
-      non_basic_variable_indices - converted_basic_column_indices
+      non_basic_variable_indices
     end
 
     def determine_pivot_row_index

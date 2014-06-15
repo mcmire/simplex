@@ -7,6 +7,7 @@ module Simplex
     def initialize(stated_problem)
       super(stated_problem)
       @stated_problem = stated_problem
+      assert_correct_dimensions!
     end
 
     def objective_vector
@@ -34,6 +35,26 @@ module Simplex
     end
 
     private
+
+    def assert_correct_dimensions!
+      constraint_coefficients_sizes = constraints.map do |constraint|
+        constraint[:coefficients].size
+      end
+
+      objective_coefficients_size = objective_coefficients.size
+
+      dimensions_match = constraint_coefficients_sizes.all? do |size|
+        size == objective_coefficients_size
+      end
+
+      unless dimensions_match
+        raise ArgumentError, <<EOT
+Dimensions of objective vector do not match dimensions of constraints matrix.
+The number of values for each constraint must be equal to the number of values
+in the objective.
+EOT
+      end
+    end
 
     def build_objective_vector
       coefficients_on_opposite_side_of_equation =
