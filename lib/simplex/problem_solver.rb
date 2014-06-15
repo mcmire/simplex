@@ -28,9 +28,10 @@ module Simplex
       @pivot_count = 0
       @categorized_constraint_columns = build_categorized_constraint_columns
       @basic_variable_indices_by_rhs_value_index = free_variable_indices.dup
+      @next_pivot = nil
+      @converted_basic_column_indices = []
       @solution = assemble_solution
       @solved = false
-      @next_pivot = nil
     end
 
     def solve
@@ -62,9 +63,6 @@ module Simplex
 
       prepare_to_pivot
 
-      pivot_column_index = next_pivot[:column_index]
-      pivot_row_index = next_pivot[:row_index]
-
       if pivot_row_index.nil?
         raise UnboundedProblem
       end
@@ -78,6 +76,7 @@ module Simplex
       pivot_element = constraints_matrix[pivot_row_index][pivot_column_index]
       pivot_ratio = Rational(1, pivot_element)
 
+      update_converted_basic_column_indices
       swap_basic_variable
       divide_pivot_row_by_pivot_element(pivot_ratio)
       adjust_non_pivot_rows_so_pivot_column_is_basic(pivot_ratio)
@@ -89,13 +88,16 @@ module Simplex
       @solution = assemble_solution
     end
 
-    def formatted_tableau(options = {})
-      if next_pivot
-        pivot_column_index = next_pivot[:column_index]
-        pivot_row_index = next_pivot[:row_index]
-        leaving_variable_index = basic_variable_indices_by_rhs_value_index[pivot_row_index]
+    def update_converted_basic_column_indices
+      if row_indices_with_surplus_variables.any?
+        converted_basic_column_indices << leaving_variable_index
+      else
+        converted_basic_column_indices.clear
       end
+      pp converted_basic_column_indices: converted_basic_column_indices
+    end
 
+    def formatted_tableau(options = {})
       objective_vector = formatted_values(@objective_vector + [calculated_objective_total]).
         map.with_index do |value, column_index|
           if basic_variable_indices_by_rhs_value_index.include?(column_index) && options[:indicate_pivot_element] == false
@@ -204,7 +206,8 @@ module Simplex
       :number_of_variables, :column_indices, :row_indices, :variable_indices,
       :non_free_variable_indices, :free_variable_indices, :variable_names,
       :pivot_count, :categorized_constraint_columns,
-      :basic_variable_indices_by_rhs_value_index, :solution, :next_pivot
+      :basic_variable_indices_by_rhs_value_index, :converted_basic_column_indices,
+      :solution, :next_pivot
 
     def solved?
       @solved
@@ -243,6 +246,25 @@ module Simplex
       end
     end
 
+    def pivot_row_index
+      if next_pivot
+        next_pivot[:row_index]
+      end
+    end
+
+    def pivot_column_index
+      if next_pivot
+        next_pivot[:column_index]
+      end
+    end
+    alias :entering_variable_index :pivot_column_index
+
+    def leaving_variable_index
+      if pivot_row_index
+        basic_variable_indices_by_rhs_value_index[pivot_row_index]
+      end
+    end
+
     def prepare_to_pivot
       @next_pivot = {}
 
@@ -263,20 +285,19 @@ module Simplex
     end
 
     def determine_indices_of_pivot_column_candidates
-      pp row_indices_with_surplus_variables: row_indices_with_surplus_variables
+      candidate_column_indices =
+        if row_indices_with_surplus_variables.any?
+          variable_indices -
+            basic_variable_indices_by_rhs_value_index -
+            surplus_variable_indices
+        else
+          basic_variable_indices_by_rhs_value_index
+        end
 
-      if row_indices_with_surplus_variables.any?
-        variable_indices -
-          basic_variable_indices_by_rhs_value_index -
-          surplus_variable_indices
-      else
-        basic_variable_indices_by_rhs_value_index
-      end
+      candidate_column_indices - converted_basic_column_indices
     end
 
     def determine_pivot_row_index
-      pivot_column_index = next_pivot[:column_index]
-
       if pivot_column_index
         row_indices = determine_indices_of_pivot_row_candidates
         pp indices_of_pivot_row_candidates: row_indices
@@ -293,8 +314,6 @@ module Simplex
     end
 
     def index_of_row_with_minimum_pivot_ratio(row_indices)
-      pivot_column_index = next_pivot[:column_index]
-
       eligible_values = row_indices.map { |row_index|
         constraint_value = constraints_matrix[row_index][pivot_column_index]
         rhs_value = rhs_values_vector[row_index]
@@ -318,27 +337,21 @@ module Simplex
     end
 
     def swap_basic_variable
-      entering_variable_index = next_pivot[:column_index]
-      row_index = next_pivot[:row_index]
-      leaving_variable_index = basic_variable_indices_by_rhs_value_index[row_index]
-
       pp entering_variable_index: entering_variable_index,
-         row_index: row_index,
+         pivot_row_index: pivot_row_index,
          leaving_variable_index: leaving_variable_index
 
-      basic_variable_indices_by_rhs_value_index[row_index] =
+      basic_variable_indices_by_rhs_value_index[pivot_row_index] =
         entering_variable_index
 
       entering_column = categorized_constraint_columns[entering_variable_index]
-      entering_column[:basic] = { kind: :slack, row_index: row_index }
+      entering_column[:basic] = { kind: :slack, row_index: pivot_row_index }
 
       leaving_column = categorized_constraint_columns[leaving_variable_index]
       leaving_column.delete(:basic)
     end
 
     def divide_pivot_row_by_pivot_element(pivot_ratio)
-      pivot_row_index = next_pivot[:row_index]
-
       # We want to make the pivot element 1 if it's not, so divide all values
       # in the pivot row by this value.
       constraints_matrix[pivot_row_index] = vector_multiply(
@@ -353,9 +366,6 @@ module Simplex
     end
 
     def adjust_non_pivot_rows_so_pivot_column_is_basic(pivot_ratio)
-      pivot_column_index = next_pivot[:column_index]
-      pivot_row_index = next_pivot[:row_index]
-
       # Now for all of the other rows we want to subtract an appropriate
       # multiple of the pivot row. This multiple is the intersection of the
       # pivot column and row in question. This causes all of the other elements
@@ -394,6 +404,9 @@ module Simplex
     end
 
     def calculated_objective_total
+      pp objective_coefficients: formulated_problem.objective_coefficients,
+         solution: solution
+
       formulated_problem.objective_coefficients.zip(solution).
         inject(0) do |total, (coefficient_value, variable_value)|
           total + (coefficient_value * variable_value)
