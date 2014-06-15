@@ -45,11 +45,12 @@ module Simplex
     end
 
     def build_constraints_matrix
-      constraint_coefficient_rows.map.with_index do |coefficients, i|
+      constraints.map.with_index do |constraint, i|
         free_variable_placeholders = Array.new(number_of_free_variables, 0)
-        values = coefficients + free_variable_placeholders
+        values = constraint[:coefficients] + free_variable_placeholders
 
-        values[number_of_non_free_variables + i] = free_variable_coefficient
+        values[number_of_non_free_variables + i] =
+          determine_free_variable_coefficient(constraint[:operator])
 
         values
       end
@@ -59,10 +60,6 @@ module Simplex
       constraints.all? do |constraint|
         constraint[:coefficients].size == objective_coefficients.size
       end
-    end
-
-    def free_variable_coefficient
-      determine_free_variable_coefficient(constraints.first[:operator])
     end
 
     def determine_free_variable_coefficient(operator)
