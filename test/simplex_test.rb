@@ -458,7 +458,7 @@ class SimplexTest < Minitest::Test
   end
 
   # Source: http://college.cengage.com/mathematics/larson/elementary_linear/4e/shared/downloads/c09s5.pdf
-  def test_mixed_constraint_maximization_problem
+  def test_maximization_problem_with_mixed_constraints
     problem = Simplex.maximization_problem do |p|
       p.objective_coefficients = [1, 1, 2]
       p.add_constraint(
@@ -494,6 +494,33 @@ class SimplexTest < Minitest::Test
 
     solution = problem.solve
     assert_equal [0, 36, 14], solution
+  end
+
+  # Source: http://college.cengage.com/mathematics/larson/elementary_linear/4e/shared/downloads/c09s5.pdf
+  def test_minimization_problem_with_mixed_constraints
+    problem = Simplex.minimization_problem do |p|
+      p.objective_coefficients = [4, 2, 1]
+      p.add_constraint(
+        coefficients: [2, 3, 4],
+        operator: :<=,
+        rhs_value: 14
+      )
+      p.add_constraint(
+        coefficients: [3, 1, 5],
+        operator: :>=,
+        rhs_value: 4
+      )
+      p.add_constraint(
+        coefficients: [1, 4, 3],
+        operator: :>=,
+        rhs_value: 6
+      )
+    end
+
+    #problem.debug!
+
+    solution = problem.solve
+    assert_equal [0, 0, 2], solution
   end
 
   def test_minimization_problem_2

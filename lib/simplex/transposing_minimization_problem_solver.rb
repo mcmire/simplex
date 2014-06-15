@@ -3,6 +3,7 @@ require 'simplex/problem_solver'
 
 module Simplex
   class MinimizationProblemSolver < ProblemSolver
+=begin
     def calculated_objective_total
       # FIXME
       formulated_problem.objective_coefficients.zip(assemble_visible_solution).
@@ -16,5 +17,6 @@ module Simplex
     def solution
       objective_vector.values_at(*free_variable_indices)
     end
+=end
   end
 end

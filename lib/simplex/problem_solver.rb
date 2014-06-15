@@ -31,9 +31,75 @@ module Simplex
       @next_pivot = nil
       @converted_basic_column_indices = []
       @full_solution = assemble_full_solution
+      @solution = assemble_solution
       @solved = false
 
-      @callbacks = Hash.new([])
+      @callbacks = {}
+    end
+
+    def debug!
+      on :begin do
+        puts 'Initial tableau'
+        puts formatted_tableau(indicate_pivot_element: false)
+      end
+
+      on :before_prepare_to_pivot do
+        puts
+        inspect 'Full solution so far', full_solution
+        inspect 'Solution so far', solution
+        inspect 'Calculated total so far', calculated_objective_total
+
+        if standard_problem?
+          puts "This is a standard problem"
+        else
+          puts "This isn't a standard problem"
+        end
+
+        puts
+        puts '--- ANALYZING TABLEAU ---'
+        #inspect 'Categorized constraint columns', categorized_constraint_columns
+      end
+
+      on :determine_entering_variable_index do
+        inspect 'Pivot column candidate indices', column_indices
+      end
+
+      on :determine_pivot_row_index do |row_indices|
+        inspect 'Pivot row candidate indices', row_indices
+      end
+
+      on :after_prepare_to_pivot do
+        inspect 'Winning column index', next_pivot[:column_index]
+        inspect 'Winning row index', next_pivot[:row_index]
+      end
+
+      on :after_analyze_tableau do
+        puts
+        puts 'Tableau after analysis:'
+        puts formatted_tableau
+        puts
+        puts '--- PERFORMING PIVOT ---'
+      end
+
+      on :pivot do
+        puts
+        puts 'Tableau after pivoting:'
+        puts formatted_tableau(indicate_pivot_element: false)
+      end
+
+      on :add_leaving_variable_to_converted_basic_column_indices do |leaving_variable_index|
+        inspect 'Adding to basic column indices', leaving_variable_index
+      end
+
+      on :clear_converted_basic_column_indices do
+        puts 'Clearing basic column indices'
+      end
+
+      on :before_swap_basic_variable do
+        inspect 'Entering variable index', entering_variable_index
+        inspect 'Pivot row index', pivot_row_index
+        inspect 'Leaving variable index', leaving_variable_index
+      end
     end
 
     def solve
@@ -55,13 +121,9 @@ module Simplex
     end
 
     def pivot(*inspection_blocks)
-      pp 'full_solution so far' => full_solution
-
-      puts 'analyzing tableau'
-
-      pp categorized_constraint_columns: categorized_constraint_columns
-
+      fire :before_prepare_to_pivot
       prepare_to_pivot
+      fire :after_prepare_to_pivot
 
       if pivot_column_index.nil?
         return false
@@ -71,9 +133,7 @@ module Simplex
         raise UnboundedProblem
       end
 
-      fire :analyze_tableau
-
-      puts 'performing pivot'
+      fire :after_analyze_tableau
 
       updating_converted_basic_column_indices do
         swap_basic_variable
@@ -83,6 +143,7 @@ module Simplex
         fire :pivot
 
         @full_solution = assemble_full_solution
+        @solution = assemble_solution
       end
 
       return true
@@ -190,11 +251,13 @@ module Simplex
     end
 
     def on(callback_name, &block)
-      callbacks[callback_name] << block
+      (callbacks[callback_name] ||= []) << block
     end
 
-    def fire(callback_name)
-      callbacks[callback_name].each { |block| block.call }
+    def fire(callback_name, *args)
+      if callbacks.key?(callback_name)
+        callbacks[callback_name].each { |block| block.call(*args) }
+      end
     end
 
     private
@@ -206,7 +269,7 @@ module Simplex
       :non_free_variable_indices, :free_variable_indices, :variable_names,
       :pivot_count, :categorized_constraint_columns,
       :basic_variable_indices, :converted_basic_column_indices,
-      :full_solution, :next_pivot, :callbacks
+      :full_solution, :solution, :next_pivot, :callbacks
 
     def solved?
       @solved
@@ -232,8 +295,8 @@ module Simplex
       columns
     end
 
-    def non_standard_problem?
-      full_solution.values_at(*free_variable_indices).any? { |value| value < 0 }
+    def standard_problem?
+      full_solution.values_at(*free_variable_indices).none? { |value| value < 0 }
     end
 
     # TODO: if this gets too slow, optimize
@@ -285,19 +348,22 @@ module Simplex
       @next_pivot = {}
 
       next_pivot[:column_index] = determine_entering_variable_index
-      pp winning_column_index: next_pivot[:column_index]
       next_pivot[:row_index] = determine_pivot_row_index
-      pp winning_row_index: next_pivot[:row_index]
     end
 
     def determine_entering_variable_index
       column_indices = determine_indices_of_pivot_column_candidates
 
-      pp indices_of_pivot_column_candidates: column_indices
+      fire :determine_entering_variable_index, column_indices
 
-      column_indices.
-        select { |index| objective_vector[index] < 0 }.
-        min_by { |index| objective_vector[index] }
+      if standard_problem?
+        column_indices.
+          select { |index| objective_vector[index] < 0 }.
+          min_by { |index| objective_vector[index] }
+      else
+        # Choose an arbitrary column
+        column_indices.first
+      end
     end
 
     def determine_indices_of_pivot_column_candidates
@@ -307,16 +373,16 @@ module Simplex
     def determine_pivot_row_index
       if pivot_column_index
         row_indices = determine_indices_of_pivot_row_candidates
-        pp indices_of_pivot_row_candidates: row_indices
+        fire :determine_pivot_row_index, row_indices
         index_of_row_with_minimum_pivot_ratio(row_indices)
       end
     end
 
     def determine_indices_of_pivot_row_candidates
-      if non_standard_problem?
-        row_indices_with_surplus_variables
-      else
+      if standard_problem?
         row_indices
+      else
+        row_indices_with_surplus_variables
       end
     end
 
@@ -345,24 +411,28 @@ module Simplex
 
     def updating_converted_basic_column_indices
       _leaving_variable_index = leaving_variable_index
+      was_standard_problem = standard_problem?
 
       yield
 
-      if non_standard_problem?
+      unless standard_problem?
         converted_basic_column_indices << _leaving_variable_index
-      else
+        fire :add_leaving_variable_to_converted_basic_column_indices, _leaving_variable_index
+      end
+
+      if !was_standard_problem && standard_problem?
+        fire :clear_converted_basic_column_indices
         converted_basic_column_indices.clear
       end
-      pp converted_basic_column_indices: converted_basic_column_indices
     end
 
     def swap_basic_variable
       _entering_variable_index = entering_variable_index
       _leaving_variable_index = leaving_variable_index
 
-      pp entering_variable_index: _entering_variable_index,
-         pivot_row_index: pivot_row_index,
-         leaving_variable_index: _leaving_variable_index
+      fire :before_swap_basic_variable,
+        entering_variable_index,
+        leaving_variable_index
 
       basic_variable_indices[pivot_row_index] =
         entering_variable_index
@@ -429,14 +499,20 @@ module Simplex
       full_solution
     end
 
-    def solution
-      full_solution[0...@number_of_non_free_variables]
+    def assemble_solution
+      solution = Array.new(number_of_non_free_variables, 0)
+
+      basic_variable_indices.
+        each_with_index do |variable_index, rhs_value_index|
+          if non_free_variable_indices.include?(variable_index)
+            solution[variable_index] = rhs_values_vector[rhs_value_index]
+          end
+        end
+
+      solution
     end
 
     def calculated_objective_total
-      pp objective_coefficients: formulated_problem.objective_coefficients,
-         full_solution: full_solution
-
       formulated_problem.objective_coefficients.zip(solution).
         inject(0) do |total, (coefficient_value, variable_value)|
           total + (coefficient_value * variable_value)
@@ -482,6 +558,17 @@ module Simplex
         padding * (max_length - length) + value
       else
         value
+      end
+    end
+
+    def inspect(description, value)
+      inspected_value = ''
+      PP.pp(value, inspected_value)
+      inspected_value.chomp!
+      if inspected_value =~ /\n/
+        puts "#{description}:", inspected_value
+      else
+        puts "#{description}: #{inspected_value}"
       end
     end
   end

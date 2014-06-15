@@ -37,7 +37,7 @@ module Simplex
 
     def build_objective_vector
       coefficients_on_opposite_side_of_equation =
-        objective_coefficients.map { |coefficient| -1 * coefficient }
+        objective_coefficients.map { |coefficient| -coefficient }
 
       free_variable_placeholders = Array.new(number_of_free_variables, 0)
 
