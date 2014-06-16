@@ -125,7 +125,7 @@ module Simplex
     end
     alias :solve! :solve
 
-    def pivot(*inspection_blocks)
+    def pivot
       fire :before_prepare_to_pivot
       prepare_to_pivot
       fire :after_prepare_to_pivot
@@ -354,6 +354,27 @@ module Simplex
         fire :choose_pivot_row, row_index
 
         break if row_index
+      end
+
+      if pivot_column_index.nil?
+        basic_variable_index =
+          solution.
+          map.with_index.
+          select { |value, index| value < 0 }.
+          map { |value, index| index }.
+          first
+
+        next_pivot[:row_index] =
+          basic_variable_indices.find_index(basic_variable_index)
+
+        if pivot_row_index
+          next_pivot[:column_index] =
+            constraints_matrix[pivot_row_index].
+            map.with_index.
+            select { |value, index| value < 0 }.
+            map { |value, index| index }.
+            first
+        end
       end
     end
 

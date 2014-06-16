@@ -405,6 +405,46 @@ class SimplexTest < Minitest::Test
     end
   end
 
+  def test_unbounded_2
+    problem = Simplex.minimization_problem do |p|
+      p.objective_coefficients = [25, 100, 55]
+      p.add_constraint(
+        coefficients: [107, 100, 0],
+        operator: :>=,
+        rhs_value: 2440
+      )
+      p.add_constraint(
+        coefficients: [107, 100, 0],
+        operator: :<=,
+        rhs_value: 3000
+      )
+      p.add_constraint(
+        coefficients: [9, 0, 0],
+        operator: :>=,
+        rhs_value: 190
+      )
+      p.add_constraint(
+        coefficients: [9, 0, 0],
+        operator: :<=,
+        rhs_value: 300
+      )
+      p.add_constraint(
+        coefficients: [4, 0, 0],
+        operator: :>=,
+        rhs_value: 127
+      )
+      p.add_constraint(
+        coefficients: [4, 0, 0],
+        operator: :<=,
+        rhs_value: 225
+      )
+    end
+
+    assert_raises Simplex::UnboundedProblem do
+      problem.solve
+    end
+  end
+
   # Source: http://college.cengage.com/mathematics/larson/elementary_linear/4e/shared/downloads/c09s4.pdf
   def test_minimization_problem
     problem = Simplex.minimization_problem do |p|
