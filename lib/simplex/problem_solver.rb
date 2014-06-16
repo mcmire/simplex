@@ -62,9 +62,6 @@ module Simplex
         puts '--- ANALYZING TABLEAU ---'
       end
 
-      on :determine_entering_variable_index do |column_indices|
-      end
-
       on :pivot_column_candidates do |column_indices|
         inspect 'Pivot column candidate indices', column_indices
       end
