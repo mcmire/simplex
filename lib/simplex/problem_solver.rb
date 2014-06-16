@@ -554,7 +554,6 @@ module Simplex
     def explain_equation(coefficients, rhs_value, operator = nil)
       letters = ('a'..'z').to_a
       terms = (0...coefficients.size).
-        reject { |index| coefficients[index].to_f == 0 }.
         map { |index| "(#{coefficients[index]})#{letters[index]}" }.
         join(' + ')
 
