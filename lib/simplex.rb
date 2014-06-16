@@ -7,15 +7,17 @@ require 'simplex/unbounded_problem'
 require 'pp'
 
 module Simplex
-  def self.maximization_problem(&block)
-    stated_problem = StatedProblem.new(&block)
-    formulated_problem = FormulatedProblem.new(stated_problem)
-    ProblemSolver.new(formulated_problem)
-  end
+  class << self
+    def maximization_problem(&block)
+      stated_problem = StatedProblem.new(:maximization, &block)
+      formulated_problem = FormulatedProblem.new(stated_problem)
+      ProblemSolver.new(formulated_problem)
+    end
 
-  def self.minimization_problem(&block)
-    stated_problem = StatedProblem.new(&block)
-    formulated_problem = InvertedFormulatedMinimizationProblem.new(stated_problem)
-    ProblemSolver.new(formulated_problem)
+    def minimization_problem(&block)
+      stated_problem = StatedProblem.new(:minimization, &block)
+      formulated_problem = InvertedFormulatedMinimizationProblem.new(stated_problem)
+      ProblemSolver.new(formulated_problem)
+    end
   end
 end

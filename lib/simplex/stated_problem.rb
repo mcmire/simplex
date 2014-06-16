@@ -1,12 +1,17 @@
 module Simplex
   class StatedProblem
     attr_accessor :objective_coefficients
-    attr_reader :constraints
+    attr_reader :type, :constraints
 
-    def initialize(&block)
+    def initialize(type, &block)
+      @type = type
       @objective_coefficients = []
       @constraints = []
       yield self
+    end
+
+    def objective_coefficients=(coefficients)
+      @objective_coefficients = rationalize(coefficients)
     end
 
     def add_constraint(coefficients:, operator:, rhs_value:)
@@ -15,7 +20,7 @@ module Simplex
       end
 
       constraints << {
-        coefficients: coefficients,
+        coefficients: rationalize(coefficients),
         operator: operator,
         rhs_value: rhs_value
       }
@@ -27,6 +32,12 @@ module Simplex
 
     def rhs_values
       constraints.map { |constraint| constraint[:rhs_value] }
+    end
+
+    private
+
+    def rationalize(values)
+      values.map { |value| value.to_s.to_r }
     end
   end
 end

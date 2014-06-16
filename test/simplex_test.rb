@@ -279,6 +279,7 @@ class SimplexTest < Minitest::Test
     assert_equal [0, 2, 0, 2], solution
   end
 
+  # Source: http://www.math.toronto.edu/mpugh/Teaching/APM236_04/bland
   def test_cycle
     problem = Simplex.maximization_problem do |p|
       p.objective_coefficients = [10, -57, -9, -24]
@@ -477,5 +478,34 @@ class SimplexTest < Minitest::Test
 
     solution = problem.solve
     assert_equal [0, 0, 2], solution
+  end
+
+  def test_finding_pivot_column_via_trial_and_error
+    problem = Simplex.minimization_problem do |p|
+      p.objective_coefficients = ['1/25', '1/100']
+      p.add_constraint(
+        coefficients: ['243/50', '221/25'],
+        operator: :>=,
+        rhs_value: 2500
+      )
+      p.add_constraint(
+        coefficients: ['243/50', '221/25'],
+        operator: :<=,
+        rhs_value: 3000
+      )
+      p.add_constraint(
+        coefficients: ['21/50', '0'],
+        operator: :>=,
+        rhs_value: 250
+      )
+      p.add_constraint(
+        coefficients: ['21/50', '0'],
+        operator: :<=,
+        rhs_value: 300
+      )
+    end
+
+    solution = problem.solve
+    assert_equal ['12500/21'.to_r, 0], solution
   end
 end

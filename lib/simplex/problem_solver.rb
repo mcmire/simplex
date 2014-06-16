@@ -29,7 +29,6 @@ module Simplex
       @categorized_constraint_columns = build_categorized_constraint_columns
       @basic_variable_indices = free_variable_indices.dup
       @next_pivot = nil
-      @converted_basic_column_indices = []
       @full_solution = assemble_full_solution
       @solution = assemble_solution
       @solved = false
@@ -38,7 +37,9 @@ module Simplex
     end
 
     def debug!
-      on :begin do
+      on :start do
+        explain_problem
+
         puts 'Initial tableau'
         puts formatted_tableau(indicate_pivot_element: false)
       end
@@ -60,7 +61,18 @@ module Simplex
       end
 
       on :determine_entering_variable_index do |column_indices|
+      end
+
+      on :pivot_column_candidates do |column_indices|
         inspect 'Pivot column candidate indices', column_indices
+      end
+
+      on :choose_pivot_column do |column_index|
+        inspect 'Choosing pivot column', column_index
+      end
+
+      on :choose_pivot_row do |row_index|
+        inspect 'Choosing pivot row', row_index
       end
 
       on :determine_pivot_row_index do |row_indices|
@@ -68,8 +80,6 @@ module Simplex
       end
 
       on :after_prepare_to_pivot do
-        inspect 'Winning column index', next_pivot[:column_index]
-        inspect 'Winning row index', next_pivot[:row_index]
       end
 
       on :after_analyze_tableau do
@@ -86,12 +96,8 @@ module Simplex
         puts formatted_tableau(indicate_pivot_element: false)
       end
 
-      on :add_leaving_variable_to_converted_basic_column_indices do |leaving_variable_index|
-        inspect 'Adding to basic column indices', leaving_variable_index
-      end
-
-      on :clear_converted_basic_column_indices do
-        puts 'Clearing basic column indices'
+      on :swap_basic_variable do
+        inspect 'Basic variables', basic_variable_indices
       end
 
       on :before_swap_basic_variable do
@@ -102,7 +108,7 @@ module Simplex
     end
 
     def solve
-      fire :begin
+      fire :start
 
       unless solved?
         while pivot
@@ -134,16 +140,14 @@ module Simplex
 
       fire :after_analyze_tableau
 
-      updating_converted_basic_column_indices do
-        swap_basic_variable
-        divide_pivot_row_by_pivot_element(pivot_ratio)
-        adjust_non_pivot_rows_so_pivot_column_is_basic(pivot_ratio)
+      swap_basic_variable
+      divide_pivot_row_by_pivot_element(pivot_ratio)
+      adjust_non_pivot_rows_so_pivot_column_is_basic(pivot_ratio)
 
-        fire :pivot
+      @full_solution = assemble_full_solution
+      @solution = assemble_solution
 
-        @full_solution = assemble_full_solution
-        @solution = assemble_solution
-      end
+      fire :pivot
 
       return true
     end
@@ -267,8 +271,8 @@ module Simplex
       :number_of_variables, :column_indices, :row_indices, :variable_indices,
       :non_free_variable_indices, :free_variable_indices, :variable_names,
       :pivot_count, :categorized_constraint_columns,
-      :basic_variable_indices, :converted_basic_column_indices,
-      :full_solution, :solution, :next_pivot, :callbacks
+      :basic_variable_indices, :full_solution, :solution, :next_pivot,
+      :callbacks
 
     def solved?
       @solved
@@ -337,28 +341,33 @@ module Simplex
 
     def prepare_to_pivot
       @next_pivot = {}
+      pivot_column_candidates = determine_indices_of_pivot_column_candidates
 
-      next_pivot[:column_index] = determine_entering_variable_index
-      next_pivot[:row_index] = determine_pivot_row_index
-    end
+      fire :pivot_column_candidates, pivot_column_candidates
 
-    def determine_entering_variable_index
-      column_indices = determine_indices_of_pivot_column_candidates
+      pivot_column_candidates.each do |column_index|
+        fire :choose_pivot_column, column_index
 
-      fire :determine_entering_variable_index, column_indices
+        next_pivot[:column_index] = column_index
+        row_index = next_pivot[:row_index] = determine_pivot_row_index
 
-      if standard_problem?
-        column_indices.
-          select { |index| objective_vector[index] < 0 }.
-          min_by { |index| objective_vector[index] }
-      else
-        # Choose an arbitrary column
-        column_indices.first
+        fire :choose_pivot_row, row_index
+
+        break if row_index
       end
     end
 
     def determine_indices_of_pivot_column_candidates
-      non_basic_variable_indices
+      column_indices = non_basic_variable_indices
+
+      if standard_problem?
+        # Don't sort by min - this avoids cycling because Bland's rule doesn't
+        # care about order only that the first is chosen every time
+        # Source: http://www.math.toronto.edu/mpugh/Teaching/APM236_04/bland
+        column_indices.select { |index| objective_vector[index] < 0 }
+      else
+        column_indices
+      end
     end
 
     def determine_pivot_row_index
@@ -393,28 +402,13 @@ module Simplex
       }
 
       row_index, _, _ =
-        last_min_by(eligible_values) { |_, constraint_value, rhs_value|
+        # Use first min to avoid cycling (Bland's rule)
+        # Source: http://www.math.toronto.edu/mpugh/Teaching/APM236_04/bland
+        eligible_values.min_by do |_, constraint_value, rhs_value|
           Rational(rhs_value, constraint_value)
-        }
+        end
 
       row_index
-    end
-
-    def updating_converted_basic_column_indices
-      _leaving_variable_index = leaving_variable_index
-      was_standard_problem = standard_problem?
-
-      yield
-
-      unless standard_problem?
-        converted_basic_column_indices << _leaving_variable_index
-        fire :add_leaving_variable_to_converted_basic_column_indices, _leaving_variable_index
-      end
-
-      if !was_standard_problem && standard_problem?
-        fire :clear_converted_basic_column_indices
-        converted_basic_column_indices.clear
-      end
     end
 
     def swap_basic_variable
@@ -427,6 +421,8 @@ module Simplex
 
       basic_variable_indices[pivot_row_index] =
         entering_variable_index
+
+      fire :swap_basic_variable
 
       entering_column = categorized_constraint_columns[_entering_variable_index]
       entering_column[:basic] = {
@@ -520,19 +516,6 @@ module Simplex
       end
     end
 
-    # like Enumerable#min_by except if multiple values are minimum
-    # it returns the last
-    def last_min_by(array)
-      best_element, best_value = nil, nil
-      array.each do |element|
-        value = yield element
-        if !best_element || value <= best_value
-          best_element, best_value = element, value
-        end
-      end
-      best_element
-    end
-
     def vector_multiply(vector, scalar)
       vector.map { |value| value * scalar }
     end
@@ -540,6 +523,45 @@ module Simplex
     def vector_subtract(vector1, vector2)
       vector1.zip(vector2).map do |value1, value2|
         value1 - value2
+      end
+    end
+
+    def explain_problem
+      formatted_type =
+        if stated_problem.type == :minimization
+          'Minimize'
+        else
+          'Maximize'
+        end
+
+      coefficients = stated_problem.objective_coefficients
+
+      puts 'Problem:'
+      puts "#{formatted_type} #{explain_equation(coefficients, 'Z')}"
+      puts
+
+      puts 'Constraints:'
+      stated_problem.constraints.each do |constraint|
+        puts ' - ' + explain_equation(
+          constraint[:coefficients],
+          constraint[:rhs_value],
+          constraint[:operator]
+        )
+      end
+      puts
+    end
+
+    def explain_equation(coefficients, rhs_value, operator = nil)
+      letters = ('a'..'z').to_a
+      terms = (0...coefficients.size).
+        reject { |index| coefficients[index].to_f == 0 }.
+        map { |index| "(#{coefficients[index]})#{letters[index]}" }.
+        join(' + ')
+
+      if operator
+        [terms, operator, rhs_value].join(' ')
+      else
+        [rhs_value, terms].join(' = ')
       end
     end
 
