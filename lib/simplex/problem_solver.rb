@@ -2,6 +2,8 @@ module Simplex
   DEFAULT_MAX_PIVOTS = 10_000
 
   class ProblemSolver
+    attr_reader :solution
+
     def initialize(formulated_problem)
       @formulated_problem = formulated_problem
       @stated_problem = formulated_problem.stated_problem
@@ -124,6 +126,7 @@ module Simplex
 
       solution
     end
+    alias :solve! :solve
 
     def pivot(*inspection_blocks)
       fire :before_prepare_to_pivot
@@ -271,7 +274,7 @@ module Simplex
       :number_of_variables, :column_indices, :row_indices, :variable_indices,
       :non_free_variable_indices, :free_variable_indices, :variable_names,
       :pivot_count, :categorized_constraint_columns,
-      :basic_variable_indices, :full_solution, :solution, :next_pivot,
+      :basic_variable_indices, :full_solution, :next_pivot,
       :callbacks
 
     def solved?
