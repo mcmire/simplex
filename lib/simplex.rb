@@ -5,7 +5,6 @@ require 'simplex/problem_solver'
 require 'simplex/stated_problem'
 require 'simplex/unbounded_problem'
 require 'pp'
-require 'pry'
 
 module Simplex
   class << self
