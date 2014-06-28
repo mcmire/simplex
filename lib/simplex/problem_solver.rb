@@ -1,5 +1,6 @@
 module Simplex
-  DEFAULT_MAX_PIVOTS = 10_000
+  #DEFAULT_MAX_PIVOTS = 10_000
+  DEFAULT_MAX_PIVOTS = 100
 
   class ProblemSolver
     attr_reader :solution
@@ -38,9 +39,34 @@ module Simplex
       @callbacks = {}
     end
 
+    def explain
+      formatted_type =
+        if stated_problem.type == :minimization
+          'Minimize'
+        else
+          'Maximize'
+        end
+
+      coefficients = stated_problem.objective_coefficients
+
+      puts 'Problem:'
+      puts "#{formatted_type} #{explain_equation(coefficients, 'Z')}"
+      puts
+
+      puts 'Constraints:'
+      stated_problem.constraints.each do |constraint|
+        puts ' - ' + explain_equation(
+          constraint[:coefficients],
+          constraint[:rhs_value],
+          constraint[:operator]
+        )
+      end
+      puts
+    end
+
     def debug!
       on :start do
-        explain_problem
+        explain
 
         puts 'Initial tableau'
         puts formatted_tableau(indicate_pivot_element: false)
@@ -545,31 +571,6 @@ module Simplex
       vector1.zip(vector2).map do |value1, value2|
         value1 - value2
       end
-    end
-
-    def explain_problem
-      formatted_type =
-        if stated_problem.type == :minimization
-          'Minimize'
-        else
-          'Maximize'
-        end
-
-      coefficients = stated_problem.objective_coefficients
-
-      puts 'Problem:'
-      puts "#{formatted_type} #{explain_equation(coefficients, 'Z')}"
-      puts
-
-      puts 'Constraints:'
-      stated_problem.constraints.each do |constraint|
-        puts ' - ' + explain_equation(
-          constraint[:coefficients],
-          constraint[:rhs_value],
-          constraint[:operator]
-        )
-      end
-      puts
     end
 
     def explain_equation(coefficients, rhs_value, operator = nil)
