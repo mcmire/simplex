@@ -1,6 +1,5 @@
 module Simplex
-  #DEFAULT_MAX_PIVOTS = 10_000
-  DEFAULT_MAX_PIVOTS = 100
+  DEFAULT_MAX_PIVOTS = 10_000
 
   class ProblemSolver
     attr_reader :solution
